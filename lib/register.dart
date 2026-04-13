@@ -61,47 +61,30 @@ class _RegisterPageState extends State<RegisterPage> {
   }
 
   void _showMessage(String message) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(message),
-      ),
-    );
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(message)));
   }
 
   InputDecoration _buildInputDecoration({required String hintText}) {
     return InputDecoration(
       hintText: hintText,
-      hintStyle: const TextStyle(
-        color: Color(0xFFCCCCCC),
-        fontSize: 14,
-      ),
+      hintStyle: const TextStyle(color: Color(0xFFCCCCCC), fontSize: 14),
       border: OutlineInputBorder(
         borderRadius: BorderRadius.circular(8),
-        borderSide: const BorderSide(
-          color: Color(0xFFE0E0E0),
-          width: 1,
-        ),
+        borderSide: const BorderSide(color: Color(0xFFE0E0E0), width: 1),
       ),
       enabledBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(8),
-        borderSide: const BorderSide(
-          color: Color(0xFFE0E0E0),
-          width: 1,
-        ),
+        borderSide: const BorderSide(color: Color(0xFFE0E0E0), width: 1),
       ),
       focusedBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(8),
-        borderSide: const BorderSide(
-          color: Color(0xFFFFC107),
-          width: 2,
-        ),
+        borderSide: const BorderSide(color: Color(0xFFFFC107), width: 2),
       ),
       filled: true,
       fillColor: Colors.white,
-      contentPadding: const EdgeInsets.symmetric(
-        horizontal: 16,
-        vertical: 12,
-      ),
+      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
     );
   }
 
@@ -126,10 +109,7 @@ class _RegisterPageState extends State<RegisterPage> {
               SizedBox(height: size.height * 0.02),
               const Text(
                 'Buat akun gratis',
-                style: TextStyle(
-                  fontSize: 32,
-                  fontWeight: FontWeight.bold,
-                ),
+                style: TextStyle(fontSize: 32, fontWeight: FontWeight.bold),
               ),
               SizedBox(height: size.height * 0.04),
               const Text(
@@ -161,24 +141,25 @@ class _RegisterPageState extends State<RegisterPage> {
               TextFormField(
                 controller: _passwordController,
                 obscureText: _obscurePassword,
-                decoration: _buildInputDecoration(
-                  hintText: 'Masukkan password anda',
-                ).copyWith(
-                  suffixIcon: GestureDetector(
-                    onTap: () {
-                      setState(() {
-                        _obscurePassword = !_obscurePassword;
-                      });
-                    },
-                    child: Icon(
-                      _obscurePassword
-                          ? Icons.visibility_off
-                          : Icons.visibility,
-                      color: const Color(0xFF999999),
-                      size: 20,
+                decoration:
+                    _buildInputDecoration(
+                      hintText: 'Masukkan password anda',
+                    ).copyWith(
+                      suffixIcon: GestureDetector(
+                        onTap: () {
+                          setState(() {
+                            _obscurePassword = !_obscurePassword;
+                          });
+                        },
+                        child: Icon(
+                          _obscurePassword
+                              ? Icons.visibility_off
+                              : Icons.visibility,
+                          color: const Color(0xFF999999),
+                          size: 20,
+                        ),
+                      ),
                     ),
-                  ),
-                ),
               ),
               SizedBox(height: size.height * 0.025),
               const Text(
@@ -193,24 +174,25 @@ class _RegisterPageState extends State<RegisterPage> {
               TextFormField(
                 controller: _confirmController,
                 obscureText: _obscureConfirm,
-                decoration: _buildInputDecoration(
-                  hintText: 'Konfirmasi password anda',
-                ).copyWith(
-                  suffixIcon: GestureDetector(
-                    onTap: () {
-                      setState(() {
-                        _obscureConfirm = !_obscureConfirm;
-                      });
-                    },
-                    child: Icon(
-                      _obscureConfirm
-                          ? Icons.visibility_off
-                          : Icons.visibility,
-                      color: const Color(0xFF999999),
-                      size: 20,
+                decoration:
+                    _buildInputDecoration(
+                      hintText: 'Konfirmasi password anda',
+                    ).copyWith(
+                      suffixIcon: GestureDetector(
+                        onTap: () {
+                          setState(() {
+                            _obscureConfirm = !_obscureConfirm;
+                          });
+                        },
+                        child: Icon(
+                          _obscureConfirm
+                              ? Icons.visibility_off
+                              : Icons.visibility,
+                          color: const Color(0xFF999999),
+                          size: 20,
+                        ),
+                      ),
                     ),
-                  ),
-                ),
               ),
               SizedBox(height: size.height * 0.05),
               SizedBox(
