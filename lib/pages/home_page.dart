@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:fl_chart/fl_chart.dart';
 import '../widgets/navbar.dart';
+import 'transaction_pemasukan.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({Key? key}) : super(key: key);
@@ -105,18 +106,29 @@ class _HomePageState extends State<HomePage> {
                   style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600),
                 ),
               ),
-              Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 12,
-                  vertical: 8,
-                ),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(20),
-                ),
-                child: const Text(
-                  "+ Tambah Transaksi",
-                  style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+              GestureDetector(
+                onTap: () {
+                  // Fungsi ini akan dijalankan saat tombol diklik
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => const TransactionPemasukan(),
+                    ),
+                  );
+                },
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 8,
+                  ),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: const Text(
+                    "+ Tambah Transaksi",
+                    style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+                  ),
                 ),
               ),
             ],
