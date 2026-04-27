@@ -272,18 +272,143 @@ class _HomePageState extends State<HomePage> {
   }
 
   Widget _buildMyGoals() {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        border: Border.all(color: Colors.grey.shade200),
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              const Text(
+                "My Goals",
+                style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 10,
+                ),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFFFC107),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: const Text(
+                  "Add Goals",
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    color: Colors.black,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 24),
+
+          _buildGoalItem(
+            icon: Icons.flight,
+            title: "Travel",
+            current: 2000000,
+            target: 5000000,
+            percent: 0.5,
+          ),
+
+          const SizedBox(height: 24),
+
+          _buildGoalItem(
+            icon: Icons.directions_car,
+            title: "Car",
+            current: 100000000,
+            target: 400000000,
+            percent: 0.25,
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildGoalItem({
+    required IconData icon,
+    required String title,
+    required int current,
+    required int target,
+    required double percent,
+  }) {
     return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: const [
-        Text(
-          "My Goals",
-          style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+      children: [
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Icon(icon, size: 36, color: Colors.black),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: const TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    "${formatCurrency(current)} / ${formatCurrency(target)}",
+                    style: const TextStyle(fontSize: 16, color: Colors.green),
+                  ),
+                ],
+              ),
+            ),
+            Text(
+              "${(percent * 100).toInt()}%",
+              style: const TextStyle(
+                fontSize: 20,
+                fontWeight: FontWeight.bold,
+                color: Color(0xFFFFC107),
+              ),
+            ),
+          ],
         ),
+        const SizedBox(height: 12),
+        _buildSegmentedProgress(percent),
       ],
     );
   }
 
+  Widget _buildSegmentedProgress(double percent) {
+    const totalBars = 10;
+    int filledBars = (percent * totalBars).round();
+
+    return Row(
+      children: List.generate(totalBars, (index) {
+        return Expanded(
+          child: Container(
+            margin: const EdgeInsets.symmetric(horizontal: 2),
+            height: 10,
+            decoration: BoxDecoration(
+              color: index < filledBars
+                  ? const Color(0xFFD4B72A)
+                  : Colors.black,
+              borderRadius: BorderRadius.circular(8),
+            ),
+          ),
+        );
+      }),
+    );
+  }
+
   Widget _buildTracking() {
+    if (income == 0 && expense == 0) {
+      return const SizedBox.shrink();
+    }
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
