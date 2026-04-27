@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:fl_chart/fl_chart.dart';
+import 'package:dio/dio.dart';
+import 'package:intl/intl.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 import '../widgets/navbar.dart';
 import 'transaction_pemasukan.dart';
 
@@ -13,6 +16,72 @@ class HomePage extends StatefulWidget {
 class _HomePageState extends State<HomePage> {
   int _currentIndex = 0;
 
+  late Dio dio;
+
+  double income = 0;
+  double expense = 0;
+  List<dynamic> transactions = [];
+
+  @override
+  void initState() {
+    super.initState();
+
+    dio = Dio(
+      BaseOptions(
+        baseUrl: dotenv.env['BASE_URL']!,
+        headers: {"Accept": "application/json"},
+      ),
+    );
+
+    fetchTransactionsMonth();
+    fetchTransactions();
+  }
+
+  Future<void> fetchTransactionsMonth() async {
+    try {
+      final now = DateTime.now();
+      final res = await dio.get("/transactions/month/${now.year}/${now.month}");
+
+      double tempIncome = 0;
+      double tempExpense = 0;
+
+      for (var item in res.data) {
+        if (item['type'] == 'income') {
+          tempIncome += (item['amount'] as num).toDouble();
+        } else if (item['type'] == 'expense') {
+          tempExpense += (item['amount'] as num).toDouble();
+        }
+      }
+
+      setState(() {
+        income = tempIncome;
+        expense = tempExpense;
+      });
+    } catch (e) {}
+  }
+
+  Future<void> fetchTransactions() async {
+    try {
+      final res = await dio.get("/transactions");
+      setState(() {
+        transactions = res.data;
+      });
+    } catch (e) {}
+  }
+
+  String formatCurrency(num value) {
+    return NumberFormat.currency(
+      locale: 'id_ID',
+      symbol: 'Rp. ',
+      decimalDigits: 0,
+    ).format(value);
+  }
+
+  String formatDate(String date) {
+    final dt = DateTime.parse(date);
+    return DateFormat('dd MMMM yyyy - HH.mm').format(dt);
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -25,7 +94,7 @@ class _HomePageState extends State<HomePage> {
             children: [
               _buildBalanceCard(),
               const SizedBox(height: 20),
-              _buildIncomeExpense(),
+              if (income != 0 || expense != 0) _buildIncomeExpense(),
               const SizedBox(height: 24),
               _buildMyGoals(),
               const SizedBox(height: 24),
@@ -37,7 +106,6 @@ class _HomePageState extends State<HomePage> {
           ),
         ),
       ),
-
       floatingActionButton: FloatingActionButton(
         onPressed: () {},
         backgroundColor: Colors.grey.shade800,
@@ -45,7 +113,6 @@ class _HomePageState extends State<HomePage> {
         child: const Icon(Icons.blur_on, color: Colors.white),
       ),
       floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
-
       bottomNavigationBar: CustomNavBar(
         currentIndex: _currentIndex,
         onTap: (index) {
@@ -83,9 +150,9 @@ class _HomePageState extends State<HomePage> {
             style: TextStyle(color: Colors.black87, fontSize: 14),
           ),
           const SizedBox(height: 4),
-          const Text(
-            "Rp.16.000",
-            style: TextStyle(
+          Text(
+            formatCurrency(income - expense),
+            style: const TextStyle(
               color: Colors.black,
               fontSize: 32,
               fontWeight: FontWeight.bold,
@@ -108,7 +175,6 @@ class _HomePageState extends State<HomePage> {
               ),
               GestureDetector(
                 onTap: () {
-                  // Fungsi ini akan dijalankan saat tombol diklik
                   Navigator.push(
                     context,
                     MaterialPageRoute(
@@ -141,210 +207,79 @@ class _HomePageState extends State<HomePage> {
   Widget _buildIncomeExpense() {
     return Row(
       children: [
-        Expanded(
-          child: Container(
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              border: Border.all(color: Colors.grey.shade200),
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Row(
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(8),
-                  decoration: BoxDecoration(
-                    color: Colors.blue.withOpacity(0.1),
-                    shape: BoxShape.circle,
-                  ),
-                  child: const Icon(
-                    Icons.arrow_downward,
-                    color: Colors.blue,
-                    size: 20,
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: const [
-                    Text(
-                      "Pemasukan",
-                      style: TextStyle(fontSize: 12, color: Colors.grey),
-                    ),
-                    Text(
-                      "Rp. 32.000",
-                      style: TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.blue,
-                      ),
-                    ),
-                  ],
-                ),
-              ],
+        if (income != 0)
+          Expanded(
+            child: _buildBox(
+              "Pemasukan",
+              formatCurrency(income),
+              Colors.blue,
+              Icons.arrow_downward,
             ),
           ),
-        ),
-        const SizedBox(width: 12),
-        Expanded(
-          child: Container(
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              border: Border.all(color: Colors.grey.shade200),
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Row(
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(8),
-                  decoration: BoxDecoration(
-                    color: Colors.red.withOpacity(0.1),
-                    shape: BoxShape.circle,
-                  ),
-                  child: const Icon(
-                    Icons.arrow_upward,
-                    color: Colors.red,
-                    size: 20,
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: const [
-                    Text(
-                      "Pengeluaran",
-                      style: TextStyle(fontSize: 12, color: Colors.grey),
-                    ),
-                    Text(
-                      "Rp. 16.000",
-                      style: TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.red,
-                      ),
-                    ),
-                  ],
-                ),
-              ],
+        if (income != 0 && expense != 0) const SizedBox(width: 12),
+        if (expense != 0)
+          Expanded(
+            child: _buildBox(
+              "Pengeluaran",
+              formatCurrency(expense),
+              Colors.red,
+              Icons.arrow_upward,
             ),
           ),
-        ),
       ],
+    );
+  }
+
+  Widget _buildBox(String title, String amount, Color color, IconData icon) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        border: Border.all(color: Colors.grey.shade200),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: color.withOpacity(0.1),
+              shape: BoxShape.circle,
+            ),
+            child: Icon(icon, color: color, size: 20),
+          ),
+          const SizedBox(width: 12),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                title,
+                style: const TextStyle(fontSize: 12, color: Colors.grey),
+              ),
+              Text(
+                amount,
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.bold,
+                  color: color,
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
     );
   }
 
   Widget _buildMyGoals() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            const Text(
-              "My Goals",
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-            ),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-              decoration: BoxDecoration(
-                color: const Color(0xFFFFC107),
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: const Text(
-                "Add Goals",
-                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 16),
-        _buildGoalItem(
-          icon: Icons.flight,
-          title: "Travel",
-          current: "Rp 2.000.000",
-          target: "Rp 5.000.000",
-          progress: 0.5,
-        ),
-        const SizedBox(height: 16),
-        _buildGoalItem(
-          icon: Icons.directions_car,
-          title: "Car",
-          current: "Rp 100.000.000",
-          target: "Rp 400.000.000",
-          progress: 0.25,
+      children: const [
+        Text(
+          "My Goals",
+          style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
         ),
       ],
-    );
-  }
-
-  Widget _buildGoalItem({
-    required IconData icon,
-    required String title,
-    required String current,
-    required String target,
-    required double progress,
-  }) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        border: Border.all(color: Colors.grey.shade200),
-        borderRadius: BorderRadius.circular(16),
-      ),
-      child: Column(
-        children: [
-          Row(
-            children: [
-              Icon(icon, size: 30),
-              const SizedBox(width: 16),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      title,
-                      style: const TextStyle(
-                        fontWeight: FontWeight.bold,
-                        fontSize: 16,
-                      ),
-                    ),
-                    Text(
-                      "$current / $target",
-                      style: const TextStyle(color: Colors.grey, fontSize: 12),
-                    ),
-                  ],
-                ),
-              ),
-              Text(
-                "${(progress * 100).toInt()}%",
-                style: const TextStyle(
-                  fontWeight: FontWeight.bold,
-                  fontSize: 16,
-                  color: Color(0xFFFFC107),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          Row(
-            children: List.generate(10, (index) {
-              return Expanded(
-                child: Container(
-                  margin: const EdgeInsets.only(right: 4),
-                  height: 6,
-                  decoration: BoxDecoration(
-                    color: index < (progress * 10)
-                        ? const Color(0xFFFFC107)
-                        : Colors.black87,
-                    borderRadius: BorderRadius.circular(4),
-                  ),
-                ),
-              );
-            }),
-          ),
-        ],
-      ),
     );
   }
 
@@ -360,117 +295,41 @@ class _HomePageState extends State<HomePage> {
         Container(
           height: 220,
           width: double.infinity,
-          padding: const EdgeInsets.only(
-            right: 20,
-            left: 4,
-            top: 20,
-            bottom: 10,
-          ),
+          padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
             color: Colors.white,
             border: Border.all(color: Colors.grey.shade200),
             borderRadius: BorderRadius.circular(16),
           ),
-          child: LineChart(
-            LineChartData(
-              gridData: FlGridData(
-                show: true,
-                drawVerticalLine: true,
-                horizontalInterval: 150000,
-                getDrawingHorizontalLine: (value) {
-                  return FlLine(
-                    color: Colors.grey.shade200,
-                    strokeWidth: 1,
-                    dashArray: [5, 5],
-                  );
-                },
-                getDrawingVerticalLine: (value) {
-                  return FlLine(
-                    color: Colors.grey.shade200,
-                    strokeWidth: 1,
-                    dashArray: [5, 5],
-                  );
-                },
-              ),
-              titlesData: FlTitlesData(
-                show: true,
-                rightTitles: const AxisTitles(
-                  sideTitles: SideTitles(showTitles: false),
-                ),
-                topTitles: const AxisTitles(
-                  sideTitles: SideTitles(showTitles: false),
-                ),
-                bottomTitles: const AxisTitles(
-                  sideTitles: SideTitles(showTitles: false),
-                ),
-                leftTitles: AxisTitles(
-                  sideTitles: SideTitles(
-                    showTitles: true,
-                    reservedSize: 40,
-                    interval: 150000,
-                    getTitlesWidget: (value, meta) {
-                      if (value == 0)
-                        return const Text(
-                          '0',
-                          style: TextStyle(fontSize: 10, color: Colors.grey),
-                        );
-                      return Text(
-                        '${(value / 1000).toInt()}k',
-                        style: const TextStyle(
-                          fontSize: 10,
-                          color: Colors.grey,
-                        ),
-                      );
-                    },
-                  ),
-                ),
-              ),
-
-              borderData: FlBorderData(show: false),
-              minX: 0,
-              maxX: 5,
-              minY: 0,
-              maxY: 900000,
-
-              lineBarsData: [
-                LineChartBarData(
-                  spots: const [
-                    FlSpot(0, 720000),
-                    FlSpot(1, 650000),
-                    FlSpot(2, 850000),
-                    FlSpot(3, 500000),
-                    FlSpot(4, 380000),
-                    FlSpot(5, 250000),
-                  ],
-                  isCurved: true,
-                  color: Colors.black87,
-                  barWidth: 2,
-                  isStrokeCapRound: true,
-                  dotData: FlDotData(
-                    show: true,
-                    getDotPainter: (spot, percent, barData, index) {
-                      return FlDotCirclePainter(
-                        radius: 4,
-                        color: Colors.white,
-                        strokeWidth: 2,
-                        strokeColor: Colors.black87,
-                      );
-                    },
-                  ),
-                  belowBarData: BarAreaData(
-                    show: true,
-                    color: const Color(0xFFFFC107).withOpacity(0.25),
-                  ),
-                ),
-              ],
-            ),
-          ),
+          child: LineChart(LineChartData()),
         ),
       ],
     );
   }
 
   Widget _buildRecentTransactions() {
+    if (transactions.isEmpty) {
+      return Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(30),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          border: Border.all(color: Colors.grey.shade200),
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: const Column(
+          children: [
+            Icon(Icons.receipt_long, size: 50, color: Colors.grey),
+            SizedBox(height: 12),
+            Text(
+              "Belum ada transaksi",
+              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+            ),
+          ],
+        ),
+      );
+    }
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -479,17 +338,17 @@ class _HomePageState extends State<HomePage> {
           style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
         ),
         const SizedBox(height: 16),
-        _buildTransactionItem(
-          name: "Indomaret",
-          date: "09 April 2026 - 14.30 WIB",
-          amount: "-Rp. 16.000",
-        ),
-        const SizedBox(height: 12),
-        _buildTransactionItem(
-          name: "Indomaret",
-          date: "09 April 2026 - 14.30 WIB",
-          amount: "-Rp. 16.000",
-        ),
+        ...transactions.take(2).map((item) {
+          return Padding(
+            padding: const EdgeInsets.only(bottom: 12),
+            child: _buildTransactionItem(
+              name: item['description'] ?? '-',
+              date: formatDate(item['date']),
+              amount:
+                  "${item['type'] == 'expense' ? '-' : '+'}${formatCurrency(item['amount'])}",
+            ),
+          );
+        }).toList(),
       ],
     );
   }
