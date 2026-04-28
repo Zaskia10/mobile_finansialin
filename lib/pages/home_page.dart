@@ -4,7 +4,9 @@ import 'package:dio/dio.dart';
 import 'package:intl/intl.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import '../widgets/navbar.dart';
+import '../services/api_service.dart';
 import 'transaction_pemasukan.dart';
+import 'profile_page.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({Key? key}) : super(key: key);
@@ -15,6 +17,77 @@ class HomePage extends StatefulWidget {
 
 class _HomePageState extends State<HomePage> {
   int _currentIndex = 0;
+  double _totalBalance = 0.0;
+  bool _isLoadingBalance = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadBalance();
+  }
+
+  Future<void> _loadBalance() async {
+    setState(() => _isLoadingBalance = true);
+    try {
+      final result = await ApiService.getResourceSummary();
+      if (mounted) {
+        setState(() {
+          _totalBalance = result['totalBalance'] ?? 0.0;
+        });
+      }
+    } catch (_) {
+      // Tetap tampilkan 0 jika gagal
+    } finally {
+      if (mounted) setState(() => _isLoadingBalance = false);
+    }
+  }
+
+  String _formatRupiah(double amount) {
+    // Format angka ke Rupiah: Rp 500.000
+    final parts = amount.toStringAsFixed(0).split('');
+    final buffer = StringBuffer();
+    for (int i = 0; i < parts.length; i++) {
+      if (i != 0 && (parts.length - i) % 3 == 0) buffer.write('.');
+      buffer.write(parts[i]);
+    }
+    return 'Rp ${buffer.toString()}';
+  }
+
+  Widget _buildHomeContent() {
+    return SafeArea(
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.all(20.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _buildBalanceCard(),
+            const SizedBox(height: 20),
+            _buildIncomeExpense(),
+            const SizedBox(height: 24),
+            _buildMyGoals(),
+            const SizedBox(height: 24),
+            _buildTracking(),
+            const SizedBox(height: 24),
+            _buildRecentTransactions(),
+            const SizedBox(height: 40),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildPlaceholderPage(String title) {
+    return Center(
+      child: Text(
+        title,
+        style: const TextStyle(
+          fontSize: 18,
+          fontWeight: FontWeight.w600,
+          color: Colors.grey,
+        ),
+      ),
+    );
+  }
 
   late Dio dio;
 
@@ -86,6 +159,16 @@ class _HomePageState extends State<HomePage> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFFFAFAFA),
+<<<<<<< HEAD
+      body: IndexedStack(
+        index: _currentIndex,
+        children: [
+          _buildHomeContent(),                    // index 0 - Beranda
+          _buildPlaceholderPage('Analisis'),       // index 1 - Analisis
+          _buildPlaceholderPage('Riwayat'),        // index 2 - Riwayat
+          const ProfilePage(),                     // index 3 - Profile
+        ],
+=======
       body: SafeArea(
         child: SingleChildScrollView(
           padding: const EdgeInsets.all(20.0),
@@ -105,6 +188,7 @@ class _HomePageState extends State<HomePage> {
             ],
           ),
         ),
+>>>>>>> a835c875fb48d86e0fcff8dfc8b1749799b5f2d1
       ),
       floatingActionButton: FloatingActionButton(
         onPressed: () {},
@@ -150,14 +234,24 @@ class _HomePageState extends State<HomePage> {
             style: TextStyle(color: Colors.black87, fontSize: 14),
           ),
           const SizedBox(height: 4),
-          Text(
-            formatCurrency(income - expense),
-            style: const TextStyle(
-              color: Colors.black,
-              fontSize: 32,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
+          _isLoadingBalance
+              ? const SizedBox(
+                  height: 36,
+                  child: Center(
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: Colors.black54,
+                    ),
+                  ),
+                )
+              : Text(
+                  _formatRupiah(_totalBalance),
+                  style: const TextStyle(
+                    color: Colors.black,
+                    fontSize: 32,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
           const SizedBox(height: 16),
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -170,7 +264,7 @@ class _HomePageState extends State<HomePage> {
                 ),
                 child: const Text(
                   "+12% Meningkat dalam 15 hari sebelumnya",
-                  style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600),
+                  style: TextStyle(fontSize: 8, fontWeight: FontWeight.w600),
                 ),
               ),
               GestureDetector(
@@ -193,7 +287,7 @@ class _HomePageState extends State<HomePage> {
                   ),
                   child: const Text(
                     "+ Tambah Transaksi",
-                    style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+                    style: TextStyle(fontSize: 8, fontWeight: FontWeight.bold),
                   ),
                 ),
               ),
