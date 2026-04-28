@@ -20,10 +20,27 @@ class _HomePageState extends State<HomePage> {
   double _totalBalance = 0.0;
   bool _isLoadingBalance = true;
 
+  late Dio dio;
+
+  double income = 0;
+  double expense = 0;
+  List<dynamic> transactions = [];
+
+  // ✅ FIXED: Hanya satu initState, semua inisialisasi digabung
   @override
   void initState() {
     super.initState();
     _loadBalance();
+
+    dio = Dio(
+      BaseOptions(
+        baseUrl: dotenv.env['BASE_URL']!,
+        headers: {"Accept": "application/json"},
+      ),
+    );
+
+    fetchTransactionsMonth();
+    fetchTransactions();
   }
 
   Future<void> _loadBalance() async {
@@ -51,63 +68,6 @@ class _HomePageState extends State<HomePage> {
       buffer.write(parts[i]);
     }
     return 'Rp ${buffer.toString()}';
-  }
-
-  Widget _buildHomeContent() {
-    return SafeArea(
-      child: SingleChildScrollView(
-        padding: const EdgeInsets.all(20.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            _buildBalanceCard(),
-            const SizedBox(height: 20),
-            _buildIncomeExpense(),
-            const SizedBox(height: 24),
-            _buildMyGoals(),
-            const SizedBox(height: 24),
-            _buildTracking(),
-            const SizedBox(height: 24),
-            _buildRecentTransactions(),
-            const SizedBox(height: 40),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildPlaceholderPage(String title) {
-    return Center(
-      child: Text(
-        title,
-        style: const TextStyle(
-          fontSize: 18,
-          fontWeight: FontWeight.w600,
-          color: Colors.grey,
-        ),
-      ),
-    );
-  }
-
-  late Dio dio;
-
-  double income = 0;
-  double expense = 0;
-  List<dynamic> transactions = [];
-
-  @override
-  void initState() {
-    super.initState();
-
-    dio = Dio(
-      BaseOptions(
-        baseUrl: dotenv.env['BASE_URL']!,
-        headers: {"Accept": "application/json"},
-      ),
-    );
-
-    fetchTransactionsMonth();
-    fetchTransactions();
   }
 
   Future<void> fetchTransactionsMonth() async {
