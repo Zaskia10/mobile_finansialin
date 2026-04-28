@@ -159,16 +159,6 @@ class _HomePageState extends State<HomePage> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFFFAFAFA),
-<<<<<<< HEAD
-      body: IndexedStack(
-        index: _currentIndex,
-        children: [
-          _buildHomeContent(),                    // index 0 - Beranda
-          _buildPlaceholderPage('Analisis'),       // index 1 - Analisis
-          _buildPlaceholderPage('Riwayat'),        // index 2 - Riwayat
-          const ProfilePage(),                     // index 3 - Profile
-        ],
-=======
       body: SafeArea(
         child: SingleChildScrollView(
           padding: const EdgeInsets.all(20.0),
@@ -188,7 +178,6 @@ class _HomePageState extends State<HomePage> {
             ],
           ),
         ),
->>>>>>> a835c875fb48d86e0fcff8dfc8b1749799b5f2d1
       ),
       floatingActionButton: FloatingActionButton(
         onPressed: () {},
@@ -234,7 +223,6 @@ class _HomePageState extends State<HomePage> {
             style: TextStyle(color: Colors.black87, fontSize: 14),
           ),
           const SizedBox(height: 4),
-<<<<<<< HEAD
           _isLoadingBalance
               ? const SizedBox(
                   height: 36,
@@ -253,16 +241,6 @@ class _HomePageState extends State<HomePage> {
                     fontWeight: FontWeight.bold,
                   ),
                 ),
-=======
-          Text(
-            formatCurrency(income - expense),
-            style: const TextStyle(
-              color: Colors.black,
-              fontSize: 32,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
->>>>>>> a835c875fb48d86e0fcff8dfc8b1749799b5f2d1
           const SizedBox(height: 16),
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
