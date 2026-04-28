@@ -29,7 +29,7 @@ class ApiService {
     if (response.statusCode == 200) {
       return {
         'success': true,
-        'totalBalance': (data['data']?['totalBalance'] ?? 0).toDouble(),
+        'totalBalance': double.tryParse(data['data']?['totalBalance']?.toString() ?? '0') ?? 0.0,
         'resources': data['data']?['resources'] ?? [],
       };
     } else {
