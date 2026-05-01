@@ -25,6 +25,8 @@ class _HomePageState extends State<HomePage> {
   double expense = 0;
   double _totalBalance = 0;
   List<dynamic> transactions = [];
+  List<dynamic> resources = [];
+  dynamic selectedResourceHome;
 
   // ✅ FIXED: Hanya satu initState, semua inisialisasi digabung
   @override
@@ -53,6 +55,28 @@ class _HomePageState extends State<HomePage> {
     fetchTransactionsMonth();
     fetchTransactions();
     _fetchTotalBalance();
+    fetchResourcesHome();
+  }
+
+  Future<void> fetchResourcesHome() async {
+    try {
+      final res = await dio.get("/resources");
+      if (mounted) {
+        setState(() {
+          // Cek berbagai kemungkinan format response (List langsung atau dalam field 'data')
+          if (res.data is List) {
+            resources = res.data;
+          } else if (res.data is Map && res.data['data'] != null) {
+            resources = res.data['data'];
+          } else {
+            resources = [];
+          }
+          debugPrint("HOME: Berhasil ambil ${resources.length} dompet");
+        });
+      }
+    } catch (e) {
+      debugPrint("HOME: Gagal ambil dompet: $e");
+    }
   }
 
   Future<void> _fetchTotalBalance() async {
@@ -120,7 +144,8 @@ class _HomePageState extends State<HomePage> {
     final result = await Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (context) => isIncome ? TransactionPemasukan() : TransactionPengeluaran(),
+        builder: (context) =>
+            isIncome ? TransactionPemasukan() : TransactionPengeluaran(),
       ),
     );
 
@@ -132,6 +157,7 @@ class _HomePageState extends State<HomePage> {
       _fetchTotalBalance();
       fetchTransactions();
       fetchTransactionsMonth();
+      fetchResourcesHome(); // Refresh daftar dompet juga
     }
   }
 
@@ -236,9 +262,20 @@ class _HomePageState extends State<HomePage> {
   }
 
   Widget _buildBalanceCard() {
+    // Tentukan nominal yang ditampilkan
+    double displayBalance = _totalBalance;
+    String displayTitle = "Total uang kamu sekarang";
+
+    if (selectedResourceHome != null) {
+      displayBalance =
+          double.tryParse(selectedResourceHome['balance']?.toString() ?? '0') ??
+          0;
+      displayTitle = "Uang kamu sekarang";
+    }
+
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.only(top: 12, left: 20, right: 20, bottom: 20),
       decoration: BoxDecoration(
         color: const Color(0xFFFFC107),
         borderRadius: BorderRadius.circular(16),
@@ -246,23 +283,78 @@ class _HomePageState extends State<HomePage> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Align(
-            alignment: Alignment.topRight,
-            child: Text(
-              "finansialin",
-              style: TextStyle(
-                fontWeight: FontWeight.bold,
-                color: Colors.white,
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              // Pilihan Sumber Uang (Dompet) - Dibuat lebih simpel tanpa background
+              GestureDetector(
+                child: Container(
+                  padding: EdgeInsets.zero,
+                  child: DropdownButtonHideUnderline(
+                    child: DropdownButton<dynamic>(
+                      value: selectedResourceHome,
+                      hint: const Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(Icons.keyboard_arrow_down, color: Colors.black, size: 20),
+                          SizedBox(width: 4),
+                          Text(
+                            "Pilih sumber uang (dompet)",
+                            style: TextStyle(fontSize: 12, color: Colors.black, fontWeight: FontWeight.w500),
+                          ),
+                        ],
+                      ),
+                      icon: const SizedBox.shrink(), // Sembunyikan ikon bawaan di kanan
+                      items: [
+                        const DropdownMenuItem<dynamic>(
+                          value: null,
+                          child: Row(
+                            children: [
+                              Icon(Icons.keyboard_arrow_down, size: 18, color: Colors.grey),
+                              SizedBox(width: 8),
+                              Text("Semua Dompet (Total)", style: TextStyle(fontSize: 12)),
+                            ],
+                          ),
+                        ),
+                        ...resources.map((res) {
+                          return DropdownMenuItem<dynamic>(
+                            value: res,
+                            child: Row(
+                              children: [
+                                const Icon(Icons.keyboard_arrow_down, size: 18, color: Colors.grey),
+                                const SizedBox(width: 8),
+                                Text(res['source']?.toString() ?? '-', style: const TextStyle(fontSize: 12)),
+                              ],
+                            ),
+                          );
+                        }).toList(),
+                      ],
+                      onChanged: (val) {
+                        setState(() {
+                          selectedResourceHome = val;
+                        });
+                      },
+                    ),
+                  ),
+                ),
               ),
-            ),
-          ),
-          const Text(
-            "Uang kamu sekarang",
-            style: TextStyle(color: Colors.black87, fontSize: 14),
+              const Text(
+                "finansialin",
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  color: Colors.white,
+                ),
+              ),
+            ],
           ),
           const SizedBox(height: 4),
           Text(
-            formatCurrency(_totalBalance),
+            displayTitle,
+            style: const TextStyle(color: Colors.black87, fontSize: 14),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            formatCurrency(displayBalance),
             style: const TextStyle(
               color: Colors.black,
               fontSize: 32,
@@ -273,17 +365,24 @@ class _HomePageState extends State<HomePage> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.5),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: const Text(
-                  "+12% Meningkat dalam 15 hari sebelumnya",
-                  style: TextStyle(fontSize: 8, fontWeight: FontWeight.w600),
+              Expanded(
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 4,
+                  ),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withOpacity(0.5),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: const Text(
+                    "+12% Meningkat dalam 15 hari sebelumnya",
+                    style: TextStyle(fontSize: 8, fontWeight: FontWeight.w600),
+                    overflow: TextOverflow.ellipsis,
+                  ),
                 ),
               ),
+              const SizedBox(width: 8),
               GestureDetector(
                 onTap: () => _navigateToTransaction(isIncome: true),
                 child: Container(
