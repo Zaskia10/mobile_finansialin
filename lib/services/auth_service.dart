@@ -4,7 +4,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 class AuthService {
   // Ganti dengan IP address komputer kamu yang sebenarnya
-  static const String baseUrl = 'http://192.168.0.102:8000/api';
+  static const String baseUrl = 'http://192.168.110.242:8000/api';
 
   // Simpan token ke SharedPreferences
   static Future<void> saveToken(String accessToken, {String? refreshToken}) async {

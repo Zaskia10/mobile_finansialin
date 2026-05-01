@@ -56,10 +56,7 @@ class _ProfilePageState extends State<ProfilePage> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
-            child: const Text(
-              'Batal',
-              style: TextStyle(color: Colors.grey),
-            ),
+            child: const Text('Batal', style: TextStyle(color: Colors.grey)),
           ),
           ElevatedButton(
             onPressed: () => Navigator.pop(context, true),
@@ -108,9 +105,7 @@ class _ProfilePageState extends State<ProfilePage> {
           // Header Profile - kuning
           _buildProfileHeader(),
           // Menu Pengaturan
-          Expanded(
-            child: _buildSettingsMenu(),
-          ),
+          Expanded(child: _buildSettingsMenu()),
         ],
       ),
     );
@@ -148,11 +143,7 @@ class _ProfilePageState extends State<ProfilePage> {
               color: Colors.grey.shade300,
             ),
             child: ClipOval(
-              child: Icon(
-                Icons.person,
-                size: 50,
-                color: Colors.grey.shade600,
-              ),
+              child: Icon(Icons.person, size: 50, color: Colors.grey.shade600),
             ),
           ),
           const SizedBox(height: 12),
@@ -180,10 +171,7 @@ class _ProfilePageState extends State<ProfilePage> {
               ? const SizedBox.shrink()
               : Text(
                   _email,
-                  style: const TextStyle(
-                    fontSize: 14,
-                    color: Colors.white,
-                  ),
+                  style: const TextStyle(fontSize: 14, color: Colors.white),
                 ),
         ],
       ),
@@ -271,10 +259,7 @@ class _ProfilePageState extends State<ProfilePage> {
                 ),
               )
             else
-              Icon(
-                Icons.chevron_right,
-                color: Colors.grey.shade400,
-              ),
+              Icon(Icons.chevron_right, color: Colors.grey.shade400),
           ],
         ),
       ),

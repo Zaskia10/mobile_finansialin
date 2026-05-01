@@ -1,12 +1,15 @@
 import 'dart:typed_data';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
 import 'transaction_pemasukan.dart';
 import '../widgets/topbar.dart';
+import '../services/auth_service.dart';
+import 'scan_receipt_page.dart';
 
 class TransactionPengeluaran extends StatefulWidget {
   const TransactionPengeluaran({Key? key}) : super(key: key);
@@ -28,10 +31,10 @@ class _TransactionPengeluaranState extends State<TransactionPengeluaran> {
   bool isLoadingCategories = true;
   bool isErrorCategories = false;
 
-  List<dynamic> fundingSources = [];
-  dynamic selectedFundingSource;
-  bool isLoadingFunding = true;
-  bool isErrorFunding = false;
+  List<dynamic> resources = [];
+  dynamic selectedResource;
+  bool isLoadingResources = true;
+  bool isErrorResources = false;
 
   DateTime? selectedDate;
 
@@ -47,11 +50,27 @@ class _TransactionPengeluaranState extends State<TransactionPengeluaran> {
     dio = Dio(
       BaseOptions(
         baseUrl: dotenv.env['BASE_URL']!,
+        connectTimeout: const Duration(seconds: 5), // Maksimal 5 detik untuk konek
+        receiveTimeout: const Duration(seconds: 5), // Maksimal 5 detik untuk terima data
         headers: {"Accept": "application/json"},
       ),
     );
+
+    dio.interceptors.add(
+      InterceptorsWrapper(
+        onRequest: (options, handler) async {
+          final token = await AuthService.getToken();
+          debugPrint("TOKEN SAAT INI: ${token != null ? 'Tersedia' : 'KOSONG!'}");
+          if (token != null) {
+            options.headers['Authorization'] = 'Bearer $token';
+          }
+          return handler.next(options);
+        },
+      ),
+    );
+
     fetchCategories();
-    fetchFundingSources();
+    fetchResources();
   }
 
   Future<void> fetchCategories() async {
@@ -61,13 +80,16 @@ class _TransactionPengeluaranState extends State<TransactionPengeluaran> {
     });
     try {
       final res = await dio.get("/categories");
+      debugPrint("DEBUG KATEGORI RAW: ${res.data}"); // Log ini penting
       setState(() {
-        categories = res.data is List ? res.data : [];
+        final dynamic rawData = res.data is Map ? res.data['data'] : res.data;
+        categories = rawData is List ? rawData : [];
         isLoadingCategories = false;
         isErrorCategories = false;
       });
+      debugPrint("KATEGORI BERHASIL DI-PARSE: ${categories.length} item");
     } catch (e) {
-      debugPrint("Gagal fetch kategori: $e");
+      debugPrint("GAGAL FETCH KATEGORI: $e");
       setState(() {
         isLoadingCategories = false;
         isErrorCategories = true;
@@ -75,25 +97,36 @@ class _TransactionPengeluaranState extends State<TransactionPengeluaran> {
     }
   }
 
-  Future<void> fetchFundingSources() async {
+  Future<void> fetchResources() async {
     setState(() {
-      isLoadingFunding = true;
-      isErrorFunding = false;
+      isLoadingResources = true;
+      isErrorResources = false;
     });
     try {
-      final res = await dio.get("/funding-sources");
+      final res = await dio.get("/resources");
+      debugPrint("Resources Response: ${res.data}");
       setState(() {
-        fundingSources = res.data is List ? res.data : [];
-        isLoadingFunding = false;
-        isErrorFunding = false;
+        final dynamic rawData = res.data is Map ? res.data['data'] : res.data;
+        resources = rawData is List ? rawData : [];
+        isLoadingResources = false;
+        isErrorResources = false;
       });
+      if (resources.isNotEmpty) debugPrint("RESOURCES BERHASIL: ${resources.length} item");
     } catch (e) {
-      debugPrint("Gagal fetch funding sources: $e");
+      debugPrint("Gagal fetch resources: $e");
       setState(() {
-        isLoadingFunding = false;
-        isErrorFunding = true;
+        isLoadingResources = false;
+        isErrorResources = true;
       });
     }
+  }
+
+  String formatCurrency(num value) {
+    return NumberFormat.currency(
+      locale: 'id_ID',
+      symbol: 'Rp ',
+      decimalDigits: 0,
+    ).format(value);
   }
 
   Future<void> pickDate() async {
@@ -200,11 +233,25 @@ class _TransactionPengeluaranState extends State<TransactionPengeluaran> {
     });
   }
 
+  Future<void> _scanReceipt() async {
+    final result = await Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => const ScanReceiptPage()),
+    );
+    if (result != null && result is XFile) {
+      final bytes = await result.readAsBytes();
+      setState(() {
+        receiptXFile = result;
+        receiptImageBytes = bytes;
+      });
+    }
+  }
+
   Future<void> saveTransaction() async {
-    if (amountController.text.isEmpty || selectedCategory == null) {
+    if (amountController.text.isEmpty || selectedCategory == null || selectedResource == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text("Jumlah dan kategori wajib diisi"),
+          content: Text("Jumlah, kategori, dan dompet wajib diisi"),
           backgroundColor: Colors.red,
         ),
       );
@@ -218,27 +265,29 @@ class _TransactionPengeluaranState extends State<TransactionPengeluaran> {
           ? DateTime.now()
           : (selectedDate ?? DateTime.now());
 
+      final cleanAmount = amountController.text.replaceAll(RegExp(r'[^0-9]'), '');
+
+      // Coba ambil ID kategori dari key yang mungkin berbeda
+      final dynamic catId = selectedCategory['idCategory'] ?? selectedCategory['id'];
+
+      // DEBUG LOG — akan tampil di terminal flutter
+      debugPrint("=== DEBUG SAVE ===");
+      debugPrint("selectedCategory: $selectedCategory");
+      debugPrint("catId: $catId");
+
       final Map<String, dynamic> formFields = {
-        "idCategory": selectedCategory['id'],
         "type": "expense",
-        "amount": amountController.text,
-        "description": selectedCategory['name'],
+        "amount": cleanAmount,
+        "description": selectedCategory['name'] ?? '',
         "date": finalDate.toIso8601String(),
-        "source": "mobile",
       };
 
-      if (selectedFundingSource != null) {
-        formFields["idFundingSource"] = selectedFundingSource['id'];
-      }
+      // Hanya kirim idCategory jika tidak null
+      if (catId != null) formFields["idCategory"] = catId;
 
-      if (receiptXFile != null && receiptImageBytes != null) {
-        final filename = receiptXFile!.name.isNotEmpty
-            ? receiptXFile!.name
-            : 'receipt.jpg';
-        formFields["receiptImage"] = MultipartFile.fromBytes(
-          receiptImageBytes!,
-          filename: filename,
-        );
+      // Kirim idResource (Wajib)
+      if (selectedResource != null) {
+        formFields["idResource"] = selectedResource['idResource'];
       }
 
       await dio.post("/transactions", data: FormData.fromMap(formFields));
@@ -253,6 +302,12 @@ class _TransactionPengeluaranState extends State<TransactionPengeluaran> {
         Navigator.pop(context, true);
       }
     } catch (e) {
+      // DEBUG: cetak detail error dari backend
+      if (e is DioException && e.response != null) {
+        debugPrint("=== ERROR RESPONSE ===");
+        debugPrint("Status: ${e.response?.statusCode}");
+        debugPrint("Body: ${e.response?.data}");
+      }
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -277,7 +332,15 @@ class _TransactionPengeluaranState extends State<TransactionPengeluaran> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.white,
-      appBar: const CustomAppBar(title: "Tambah Transaksi"),
+      appBar: CustomAppBar(
+        title: "Tambah Transaksi",
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.qr_code_scanner, color: Colors.black),
+            onPressed: _scanReceipt,
+          ),
+        ],
+      ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(24.0),
         child: Column(
@@ -293,12 +356,10 @@ class _TransactionPengeluaranState extends State<TransactionPengeluaran> {
                 children: [
                   Expanded(
                     child: GestureDetector(
-                      onTap: () => Navigator.pushReplacement(
-                        context,
-                        MaterialPageRoute(
-                          builder: (_) => const TransactionPemasukan(),
-                        ),
-                      ),
+                      onTap: () {
+                        // Kembali ke home dengan instruksi pindah ke pemasukan
+                        Navigator.pop(context, "switch_to_pemasukan");
+                      },
                       child: const Center(
                         child: Text(
                           "Pemasukan",
@@ -352,17 +413,35 @@ class _TransactionPengeluaranState extends State<TransactionPengeluaran> {
             ),
             const SizedBox(height: 16),
 
-            _buildLabel("Sumber Dana", isRequired: false),
+            _buildLabel("Sumber Dana (Dompet)"),
             _buildDropdown(
-              hint: "Pilih Sumber Dana (opsional)",
-              value: selectedFundingSource,
-              items: fundingSources,
-              isLoading: isLoadingFunding,
-              isError: isErrorFunding,
-              onChanged: (val) => setState(() => selectedFundingSource = val),
-              onRetry: fetchFundingSources,
-              isRequired: false,
+              hint: "Pilih Dompet",
+              value: selectedResource,
+              items: resources,
+              isLoading: isLoadingResources,
+              isError: isErrorResources,
+              onChanged: (val) {
+                setState(() {
+                  selectedResource = val;
+                });
+              },
+              onRetry: fetchResources,
+              isRequired: true,
             ),
+            if (selectedResource != null)
+              Padding(
+                padding: const EdgeInsets.only(top: 8, left: 4),
+                child: Text(
+                  "Saldo tersedia: ${formatCurrency(double.tryParse(selectedResource!['balance']?.toString() ?? '0') ?? 0)}",
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: (double.tryParse(selectedResource!['balance']?.toString() ?? '0') ?? 0) > 0
+                        ? Colors.green
+                        : Colors.red,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
             const SizedBox(height: 16),
 
             _buildLabel("Kapan Uang Keluar"),
@@ -624,10 +703,17 @@ class _TransactionPengeluaranState extends State<TransactionPengeluaran> {
           isExpanded: true,
           items: items
               .map(
-                (item) => DropdownMenuItem(
-                  value: item,
-                  child: Text(item['name']?.toString() ?? ''),
-                ),
+                (item) {
+                  // Cek apakah ini Kategori (pakai 'name') atau Sumber Dana (pakai 'source')
+                  final String label = item['name']?.toString() ?? item['source']?.toString() ?? '-';
+                  return DropdownMenuItem(
+                    value: item,
+                    child: Text(
+                      label,
+                      style: const TextStyle(color: Colors.black, fontSize: 14),
+                    ),
+                  );
+                },
               )
               .toList(),
           onChanged: onChanged,

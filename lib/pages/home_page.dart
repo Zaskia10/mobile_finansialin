@@ -1,4 +1,3 @@
-
 import 'package:flutter/material.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:dio/dio.dart';
@@ -8,6 +7,7 @@ import '../services/auth_service.dart';
 import '../services/api_service.dart';
 import '../widgets/navbar.dart';
 import 'transaction_pemasukan.dart';
+import 'transaction_pengeluaran.dart';
 import 'profile_page.dart';
 
 class HomePage extends StatefulWidget {
@@ -38,15 +38,17 @@ class _HomePageState extends State<HomePage> {
       ),
     );
 
-    dio.interceptors.add(InterceptorsWrapper(
-      onRequest: (options, handler) async {
-        final token = await AuthService.getToken();
-        if (token != null) {
-          options.headers['Authorization'] = 'Bearer $token';
-        }
-        return handler.next(options);
-      },
-    ));
+    dio.interceptors.add(
+      InterceptorsWrapper(
+        onRequest: (options, handler) async {
+          final token = await AuthService.getToken();
+          if (token != null) {
+            options.headers['Authorization'] = 'Bearer $token';
+          }
+          return handler.next(options);
+        },
+      ),
+    );
 
     fetchTransactionsMonth();
     fetchTransactions();
@@ -70,16 +72,20 @@ class _HomePageState extends State<HomePage> {
     try {
       final now = DateTime.now();
       final res = await dio.get("/transactions/month/${now.year}/${now.month}");
-      final List<dynamic> dataList = res.data is Map ? (res.data['data'] ?? []) : res.data;
+      final List<dynamic> dataList = res.data is Map
+          ? (res.data['data'] ?? [])
+          : res.data;
 
       double tempIncome = 0;
       double tempExpense = 0;
 
       for (var item in dataList) {
         if (item['type'] == 'income') {
-          tempIncome += double.tryParse(item['amount']?.toString() ?? '0') ?? 0.0;
+          tempIncome +=
+              double.tryParse(item['amount']?.toString() ?? '0') ?? 0.0;
         } else if (item['type'] == 'expense') {
-          tempExpense += double.tryParse(item['amount']?.toString() ?? '0') ?? 0.0;
+          tempExpense +=
+              double.tryParse(item['amount']?.toString() ?? '0') ?? 0.0;
         }
       }
 
@@ -97,7 +103,9 @@ class _HomePageState extends State<HomePage> {
   Future<void> fetchTransactions() async {
     try {
       final res = await dio.get("/transactions");
-      final List<dynamic> dataList = res.data is Map ? (res.data['data'] ?? []) : res.data;
+      final List<dynamic> dataList = res.data is Map
+          ? (res.data['data'] ?? [])
+          : res.data;
       if (mounted) {
         setState(() {
           transactions = dataList;
@@ -105,6 +113,25 @@ class _HomePageState extends State<HomePage> {
       }
     } catch (e) {
       // Tetap tampilkan kosong jika gagal
+    }
+  }
+
+  Future<void> _navigateToTransaction({required bool isIncome}) async {
+    final result = await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => isIncome ? TransactionPemasukan() : TransactionPengeluaran(),
+      ),
+    );
+
+    if (result == "switch_to_pengeluaran") {
+      _navigateToTransaction(isIncome: false);
+    } else if (result == "switch_to_pemasukan") {
+      _navigateToTransaction(isIncome: true);
+    } else if (result == true) {
+      _fetchTotalBalance();
+      fetchTransactions();
+      fetchTransactionsMonth();
     }
   }
 
@@ -120,7 +147,7 @@ class _HomePageState extends State<HomePage> {
     if (date == null) return '-';
     try {
       final dt = DateTime.parse(date.toString());
-      return DateFormat('dd MMMM yyyy - HH.mm', 'id_ID').format(dt);
+      return '${DateFormat('dd MMMM yyyy - HH.mm', 'id_ID').format(dt)} WIB';
     } catch (_) {
       return date.toString();
     }
@@ -181,7 +208,7 @@ class _HomePageState extends State<HomePage> {
       backgroundColor: const Color(0xFFFAFAFA),
       body: _buildBody(),
       floatingActionButton: FloatingActionButton(
-        onPressed: () {},
+        onPressed: () => _navigateToTransaction(isIncome: false),
         backgroundColor: Colors.grey.shade800,
         shape: const CircleBorder(),
         child: const Icon(Icons.blur_on, color: Colors.white),
@@ -194,9 +221,7 @@ class _HomePageState extends State<HomePage> {
             // Profile → navigate sebagai screen tersendiri
             Navigator.push(
               context,
-              MaterialPageRoute(
-                builder: (context) => const ProfilePage(),
-              ),
+              MaterialPageRoute(builder: (context) => const ProfilePage()),
             ).then((_) {
               setState(() => _currentIndex = 0);
             });
@@ -260,14 +285,7 @@ class _HomePageState extends State<HomePage> {
                 ),
               ),
               GestureDetector(
-                onTap: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (context) => const TransactionPemasukan(),
-                    ),
-                  );
-                },
+                onTap: () => _navigateToTransaction(isIncome: true),
                 child: Container(
                   padding: const EdgeInsets.symmetric(
                     horizontal: 12,
@@ -295,21 +313,27 @@ class _HomePageState extends State<HomePage> {
       children: [
         if (income != 0)
           Expanded(
-            child: _buildBox(
-              "Pemasukan",
-              formatCurrency(income),
-              Colors.blue,
-              Icons.arrow_downward,
+            child: GestureDetector(
+              onTap: () => _navigateToTransaction(isIncome: true),
+              child: _buildBox(
+                "Pemasukan",
+                formatCurrency(income),
+                Colors.blue,
+                Icons.arrow_downward,
+              ),
             ),
           ),
         if (income != 0 && expense != 0) const SizedBox(width: 12),
         if (expense != 0)
           Expanded(
-            child: _buildBox(
-              "Pengeluaran",
-              formatCurrency(expense),
-              Colors.red,
-              Icons.arrow_upward,
+            child: GestureDetector(
+              onTap: () => _navigateToTransaction(isIncome: false),
+              child: _buildBox(
+                "Pengeluaran",
+                formatCurrency(expense),
+                Colors.red,
+                Icons.arrow_upward,
+              ),
             ),
           ),
       ],
@@ -374,7 +398,7 @@ class _HomePageState extends State<HomePage> {
             children: [
               const Text(
                 "My Goals",
-                style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
+                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
               ),
               Container(
                 padding: const EdgeInsets.symmetric(
@@ -388,6 +412,7 @@ class _HomePageState extends State<HomePage> {
                 child: const Text(
                   "Add Goals",
                   style: TextStyle(
+                    fontSize: 10,
                     fontWeight: FontWeight.bold,
                     color: Colors.black,
                   ),
@@ -428,7 +453,7 @@ class _HomePageState extends State<HomePage> {
         Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Icon(icon, size: 36, color: Colors.black),
+            Icon(icon, size: 24, color: Colors.black),
             const SizedBox(width: 16),
             Expanded(
               child: Column(
@@ -437,14 +462,14 @@ class _HomePageState extends State<HomePage> {
                   Text(
                     title,
                     style: const TextStyle(
-                      fontSize: 20,
+                      fontSize: 12,
                       fontWeight: FontWeight.bold,
                     ),
                   ),
                   const SizedBox(height: 4),
                   Text(
                     "${formatCurrency(current)} / ${formatCurrency(target)}",
-                    style: const TextStyle(fontSize: 16, color: Colors.green),
+                    style: const TextStyle(fontSize: 12, color: Colors.green),
                   ),
                 ],
               ),
@@ -474,7 +499,7 @@ class _HomePageState extends State<HomePage> {
         return Expanded(
           child: Container(
             margin: const EdgeInsets.symmetric(horizontal: 2),
-            height: 10,
+            height: 8,
             decoration: BoxDecoration(
               color: index < filledBars
                   ? const Color(0xFFD4B72A)
@@ -640,14 +665,16 @@ class _HomePageState extends State<HomePage> {
         ),
         const SizedBox(height: 16),
         ...transactions.take(2).map((item) {
-          final double parsedAmount = double.tryParse(item['amount']?.toString() ?? '0') ?? 0.0;
+          final double parsedAmount =
+              double.tryParse(item['amount']?.toString() ?? '0') ?? 0.0;
+          final bool isIncome = item['type'] == 'income';
           return Padding(
             padding: const EdgeInsets.only(bottom: 12),
             child: _buildTransactionItem(
               name: item['description'] ?? '-',
               date: formatDate(item['date']),
-              amount:
-                  "${item['type'] == 'expense' ? '-' : '+'}${formatCurrency(parsedAmount)}",
+              amount: "${isIncome ? '+' : '-'}${formatCurrency(parsedAmount)}",
+              isIncome: isIncome,
             ),
           );
         }).toList(),
@@ -659,6 +686,7 @@ class _HomePageState extends State<HomePage> {
     required String name,
     required String date,
     required String amount,
+    required bool isIncome,
   }) {
     return Container(
       padding: const EdgeInsets.all(12),
@@ -698,8 +726,8 @@ class _HomePageState extends State<HomePage> {
           ),
           Text(
             amount,
-            style: const TextStyle(
-              color: Colors.red,
+            style: TextStyle(
+              color: isIncome ? Colors.green : Colors.red,
               fontWeight: FontWeight.bold,
               fontSize: 14,
             ),
