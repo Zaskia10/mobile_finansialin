@@ -12,43 +12,73 @@ class CustomNavBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return BottomAppBar(
-      shape: const CircularNotchedRectangle(),
-      notchMargin: 12.0,
-      color: Colors.white,
-      elevation: 8,
+    return SafeArea(
       child: Container(
-        height: 65,
-        padding: const EdgeInsets.symmetric(horizontal: 8.0),
-        child: Row(
-          children: <Widget>[
-            Expanded(
-              child: _buildNavItem(
-                icon: Icons.home_filled,
-                label: "Beranda",
-                index: 0,
+        height: 85,
+        color: Colors.transparent,
+        child: Stack(
+          children: [
+            Positioned(
+              left: 0,
+              right: 0,
+              bottom: 0,
+              child: Container(
+                height: 65,
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.05),
+                      blurRadius: 10,
+                      offset: const Offset(0, -4),
+                    ),
+                  ],
+                ),
               ),
             ),
-            Expanded(
-              child: _buildNavItem(
-                icon: Icons.trending_up,
-                label: "Analisis",
-                index: 1,
-              ),
-            ),
-            const SizedBox(width: 48),
-            Expanded(
-              child: _buildNavItem(
-                icon: Icons.account_balance_wallet_outlined,
-                label: "Riwayat",
-                index: 2,
-              ),
-            ),
-            Expanded(
-              child: _buildNavItem(
-                icon: Icons.person_outline,
-                label: "Profile",
-                index: 3,
+
+            Positioned(
+              left: 0,
+              right: 0,
+              bottom: 0,
+              top: 0,
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  Expanded(
+                    child: _buildNormalItem(
+                      icon: Icons.home_outlined,
+                      activeIcon: Icons.home,
+                      label: "Beranda",
+                      index: 0,
+                    ),
+                  ),
+                  Expanded(
+                    child: _buildNormalItem(
+                      icon: Icons.trending_up,
+                      activeIcon: Icons.trending_up,
+                      label: "Analisis",
+                      index: 1,
+                    ),
+                  ),
+                  Expanded(child: _buildCenterItem()),
+                  Expanded(
+                    child: _buildNormalItem(
+                      icon: Icons.account_balance_wallet_outlined,
+                      activeIcon: Icons.account_balance_wallet,
+                      label: "Riwayat",
+                      index: 3,
+                    ),
+                  ),
+                  Expanded(
+                    child: _buildNormalItem(
+                      icon: Icons.person_outline,
+                      activeIcon: Icons.person,
+                      label: "Profile",
+                      index: 4,
+                    ),
+                  ),
+                ],
               ),
             ),
           ],
@@ -57,33 +87,91 @@ class CustomNavBar extends StatelessWidget {
     );
   }
 
-  Widget _buildNavItem({
+  Widget _buildNormalItem({
     required IconData icon,
+    required IconData activeIcon,
     required String label,
     required int index,
   }) {
     bool isSelected = currentIndex == index;
 
-    return MaterialButton(
-      padding: EdgeInsets.zero,
-      onPressed: () => onTap(index),
+    return GestureDetector(
+      onTap: () => onTap(index),
+      behavior: HitTestBehavior.opaque,
       child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
+        mainAxisAlignment: MainAxisAlignment.end,
         children: [
           Icon(
-            icon,
-            color: isSelected ? const Color(0xFFFFC107) : Colors.grey,
+            isSelected ? activeIcon : icon,
+            color: isSelected ? const Color(0xFFFFC107) : Colors.grey.shade500,
             size: 26,
           ),
           const SizedBox(height: 4),
           Text(
             label,
             style: TextStyle(
-              color: isSelected ? const Color(0xFFFFC107) : Colors.grey,
-              fontSize: 10,
-              fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+              color: isSelected
+                  ? const Color(0xFFFFC107)
+                  : Colors.grey.shade500,
+              fontSize: 11,
+              fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
             ),
           ),
+          const SizedBox(height: 8),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildCenterItem() {
+    bool isSelected = currentIndex == 2;
+
+    return GestureDetector(
+      onTap: () => onTap(2),
+      behavior: HitTestBehavior.opaque,
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.end,
+        children: [
+          Container(
+            height: 52,
+            width: 52,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              gradient: LinearGradient(
+                colors: isSelected
+                    ? [const Color(0xFFE0FF00), const Color(0xFFFFC107)]
+                    : [Colors.grey.shade500, Colors.grey.shade700],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: isSelected
+                      ? const Color(0xFFFFC107).withOpacity(0.4)
+                      : Colors.black26,
+                  blurRadius: 8,
+                  offset: const Offset(0, 4),
+                ),
+              ],
+            ),
+            child: const Icon(
+              Icons.auto_awesome,
+              color: Colors.white,
+              size: 26,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            "AI Asisten",
+            style: TextStyle(
+              color: isSelected
+                  ? const Color(0xFFFFC107)
+                  : Colors.grey.shade500,
+              fontSize: 11,
+              fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
+            ),
+          ),
+          const SizedBox(height: 8),
         ],
       ),
     );
