@@ -1,13 +1,17 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 
 class AuthService {
   // Ganti dengan IP address komputer kamu yang sebenarnya
-  static const String baseUrl = 'http://192.168.0.102:8000/api';
+  static String baseUrl = dotenv.env['BASE_URL']!;
 
   // Simpan token ke SharedPreferences
-  static Future<void> saveToken(String accessToken, {String? refreshToken}) async {
+  static Future<void> saveToken(
+    String accessToken, {
+    String? refreshToken,
+  }) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString('access_token', accessToken);
     if (refreshToken != null) {
@@ -48,6 +52,9 @@ class AuthService {
         if (phone != null) 'phone': phone,
       }),
     );
+
+    print("STATUS: ${response.statusCode}");
+    print("BODY: ${response.body}");
 
     final data = jsonDecode(response.body);
 
@@ -192,12 +199,12 @@ class AuthService {
 
     if (response.statusCode == 200) {
       await clearToken();
-      return {'success': true, 'message': data['message'] ?? 'Logout successful'};
-    } else {
       return {
-        'success': false,
-        'message': data['message'] ?? 'Logout failed',
+        'success': true,
+        'message': data['message'] ?? 'Logout successful',
       };
+    } else {
+      return {'success': false, 'message': data['message'] ?? 'Logout failed'};
     }
   }
 
