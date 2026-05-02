@@ -5,7 +5,7 @@ import 'package:flutter_dotenv/flutter_dotenv.dart';
 
 class AuthService {
   // Ganti dengan IP address komputer kamu yang sebenarnya
-  static String baseUrl = dotenv.env['BASE_URL']!;
+  static const String baseUrl = 'http://192.168.110.242:8000/api';
 
   // Simpan token ke SharedPreferences
   static Future<void> saveToken(
