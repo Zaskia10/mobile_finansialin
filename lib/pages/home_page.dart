@@ -9,6 +9,7 @@ import '../widgets/navbar.dart';
 import 'transaction_pemasukan.dart';
 import 'transaction_pengeluaran.dart';
 import 'profile_page.dart';
+import 'chatbot_page.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({Key? key}) : super(key: key);
@@ -222,6 +223,8 @@ class _HomePageState extends State<HomePage> {
       case 1:
         return _buildPlaceholderPage('Analisis');
       case 2:
+        return const AIAssistantScreen();
+      case 3:
         return _buildPlaceholderPage('Riwayat');
       default:
         return _buildHomeContent();
@@ -243,8 +246,7 @@ class _HomePageState extends State<HomePage> {
       bottomNavigationBar: CustomNavBar(
         currentIndex: _currentIndex,
         onTap: (index) {
-          if (index == 3) {
-            // Profile → navigate sebagai screen tersendiri
+          if (index == 4) {
             Navigator.push(
               context,
               MaterialPageRoute(builder: (context) => const ProfilePage()),
@@ -296,23 +298,39 @@ class _HomePageState extends State<HomePage> {
                       hint: const Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          Icon(Icons.keyboard_arrow_down, color: Colors.black, size: 20),
+                          Icon(
+                            Icons.keyboard_arrow_down,
+                            color: Colors.black,
+                            size: 20,
+                          ),
                           SizedBox(width: 4),
                           Text(
                             "Pilih sumber uang (dompet)",
-                            style: TextStyle(fontSize: 12, color: Colors.black, fontWeight: FontWeight.w500),
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: Colors.black,
+                              fontWeight: FontWeight.w500,
+                            ),
                           ),
                         ],
                       ),
-                      icon: const SizedBox.shrink(), // Sembunyikan ikon bawaan di kanan
+                      icon:
+                          const SizedBox.shrink(), // Sembunyikan ikon bawaan di kanan
                       items: [
                         const DropdownMenuItem<dynamic>(
                           value: null,
                           child: Row(
                             children: [
-                              Icon(Icons.keyboard_arrow_down, size: 18, color: Colors.grey),
+                              Icon(
+                                Icons.keyboard_arrow_down,
+                                size: 18,
+                                color: Colors.grey,
+                              ),
                               SizedBox(width: 8),
-                              Text("Semua Dompet (Total)", style: TextStyle(fontSize: 12)),
+                              Text(
+                                "Semua Dompet (Total)",
+                                style: TextStyle(fontSize: 12),
+                              ),
                             ],
                           ),
                         ),
@@ -321,9 +339,16 @@ class _HomePageState extends State<HomePage> {
                             value: res,
                             child: Row(
                               children: [
-                                const Icon(Icons.keyboard_arrow_down, size: 18, color: Colors.grey),
+                                const Icon(
+                                  Icons.keyboard_arrow_down,
+                                  size: 18,
+                                  color: Colors.grey,
+                                ),
                                 const SizedBox(width: 8),
-                                Text(res['source']?.toString() ?? '-', style: const TextStyle(fontSize: 12)),
+                                Text(
+                                  res['source']?.toString() ?? '-',
+                                  style: const TextStyle(fontSize: 12),
+                                ),
                               ],
                             ),
                           );
