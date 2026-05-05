@@ -4,12 +4,12 @@ import 'package:dio/dio.dart';
 import 'package:intl/intl.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import '../services/auth_service.dart';
-import '../services/api_service.dart';
 import '../widgets/navbar.dart';
 import 'transaction_pemasukan.dart';
 import 'transaction_pengeluaran.dart';
 import 'profile_page.dart';
 import 'chatbot_page.dart';
+import 'add_goal_page.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({Key? key}) : super(key: key);
@@ -27,9 +27,12 @@ class _HomePageState extends State<HomePage> {
   double _totalBalance = 0;
   List<dynamic> transactions = [];
   List<dynamic> resources = [];
+  List<dynamic> goals = [];
   dynamic selectedResourceHome;
 
-  // ✅ FIXED: Hanya satu initState, semua inisialisasi digabung
+  List<FlSpot> chartData = [];
+  String percentageText = "";
+
   @override
   void initState() {
     super.initState();
@@ -53,10 +56,16 @@ class _HomePageState extends State<HomePage> {
       ),
     );
 
+    _fetchAllData();
+  }
+
+  void _fetchAllData() {
+    fetchResourcesHome();
+    fetchTotalBalance();
     fetchTransactionsMonth();
     fetchTransactions();
-    _fetchTotalBalance();
-    fetchResourcesHome();
+    fetchGoals();
+    fetchDashboardSummary();
   }
 
   Future<void> fetchResourcesHome() async {
@@ -64,7 +73,6 @@ class _HomePageState extends State<HomePage> {
       final res = await dio.get("/resources");
       if (mounted) {
         setState(() {
-          // Cek berbagai kemungkinan format response (List langsung atau dalam field 'data')
           if (res.data is List) {
             resources = res.data;
           } else if (res.data is Map && res.data['data'] != null) {
@@ -72,24 +80,27 @@ class _HomePageState extends State<HomePage> {
           } else {
             resources = [];
           }
-          debugPrint("HOME: Berhasil ambil ${resources.length} dompet");
         });
       }
     } catch (e) {
-      debugPrint("HOME: Gagal ambil dompet: $e");
+      debugPrint("Gagal fetch resources: $e");
     }
   }
 
-  Future<void> _fetchTotalBalance() async {
+  Future<void> fetchTotalBalance() async {
     try {
-      final res = await ApiService.getResourceSummary();
-      if (res['success'] && mounted) {
+      final res = await dio.get("/resources/summary");
+      if (mounted) {
         setState(() {
-          _totalBalance = res['totalBalance'];
+          _totalBalance =
+              double.tryParse(
+                res.data['data']?['totalBalance']?.toString() ?? '0',
+              ) ??
+              0.0;
         });
       }
     } catch (e) {
-      debugPrint("Error fetch total balance: $e");
+      debugPrint("Gagal fetch total balance: $e");
     }
   }
 
@@ -121,7 +132,7 @@ class _HomePageState extends State<HomePage> {
         });
       }
     } catch (e) {
-      // Tetap tampilkan 0 jika gagal
+      debugPrint("Gagal fetch monthly transactions: $e");
     }
   }
 
@@ -137,7 +148,67 @@ class _HomePageState extends State<HomePage> {
         });
       }
     } catch (e) {
-      // Tetap tampilkan kosong jika gagal
+      debugPrint("Gagal fetch transactions: $e");
+    }
+  }
+
+  Future<void> fetchGoals() async {
+    try {
+      final res = await dio.get("/budgets/goals");
+      final List<dynamic> dataList = res.data is Map
+          ? (res.data['data'] ?? [])
+          : res.data;
+      if (mounted) {
+        setState(() {
+          goals = dataList;
+        });
+      }
+    } catch (e) {
+      try {
+        final resFallback = await dio.get("/budgets");
+        final List<dynamic> fallbackList = resFallback.data is Map
+            ? (resFallback.data['data'] ?? [])
+            : resFallback.data;
+        if (mounted) {
+          setState(() {
+            goals = fallbackList;
+          });
+        }
+      } catch (eFallback) {
+        debugPrint("Gagal fetch goals: $eFallback");
+      }
+    }
+  }
+
+  Future<void> fetchDashboardSummary() async {
+    try {
+      final res = await dio.get("/dashboard-summary");
+      final data = res.data is Map ? (res.data['data'] ?? {}) : {};
+
+      if (mounted) {
+        setState(() {
+          percentageText =
+              data['percentage_text']?.toString() ?? "Tidak ada data";
+
+          if (data['chart_data'] != null && data['chart_data'] is List) {
+            chartData = (data['chart_data'] as List).map((point) {
+              return FlSpot(
+                double.tryParse(point['x'].toString()) ?? 0,
+                double.tryParse(point['y'].toString()) ?? 0,
+              );
+            }).toList();
+          } else {
+            chartData = [];
+          }
+        });
+      }
+    } catch (e) {
+      debugPrint("Gagal fetch dashboard summary: $e");
+      if (mounted) {
+        setState(() {
+          percentageText = "Gagal memuat data";
+        });
+      }
     }
   }
 
@@ -145,8 +216,9 @@ class _HomePageState extends State<HomePage> {
     final result = await Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (context) =>
-            isIncome ? TransactionPemasukan() : TransactionPengeluaran(),
+        builder: (context) => isIncome
+            ? const TransactionPemasukan()
+            : const TransactionPengeluaran(),
       ),
     );
 
@@ -155,10 +227,7 @@ class _HomePageState extends State<HomePage> {
     } else if (result == "switch_to_pemasukan") {
       _navigateToTransaction(isIncome: true);
     } else if (result == true) {
-      _fetchTotalBalance();
-      fetchTransactions();
-      fetchTransactionsMonth();
-      fetchResourcesHome(); // Refresh daftar dompet juga
+      _fetchAllData();
     }
   }
 
@@ -173,7 +242,7 @@ class _HomePageState extends State<HomePage> {
   String formatDate(dynamic date) {
     if (date == null) return '-';
     try {
-      final dt = DateTime.parse(date.toString());
+      final dt = DateTime.parse(date.toString()).toLocal();
       return '${DateFormat('dd MMMM yyyy - HH.mm', 'id_ID').format(dt)} WIB';
     } catch (_) {
       return date.toString();
@@ -252,6 +321,7 @@ class _HomePageState extends State<HomePage> {
               MaterialPageRoute(builder: (context) => const ProfilePage()),
             ).then((_) {
               setState(() => _currentIndex = 0);
+              _fetchAllData();
             });
           } else {
             setState(() {
@@ -264,7 +334,6 @@ class _HomePageState extends State<HomePage> {
   }
 
   Widget _buildBalanceCard() {
-    // Tentukan nominal yang ditampilkan
     double displayBalance = _totalBalance;
     String displayTitle = "Total uang kamu sekarang";
 
@@ -288,7 +357,6 @@ class _HomePageState extends State<HomePage> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              // Pilihan Sumber Uang (Dompet) - Dibuat lebih simpel tanpa background
               GestureDetector(
                 child: Container(
                   padding: EdgeInsets.zero,
@@ -314,8 +382,7 @@ class _HomePageState extends State<HomePage> {
                           ),
                         ],
                       ),
-                      icon:
-                          const SizedBox.shrink(), // Sembunyikan ikon bawaan di kanan
+                      icon: const SizedBox.shrink(),
                       items: [
                         const DropdownMenuItem<dynamic>(
                           value: null,
@@ -400,9 +467,14 @@ class _HomePageState extends State<HomePage> {
                     color: Colors.white.withOpacity(0.5),
                     borderRadius: BorderRadius.circular(12),
                   ),
-                  child: const Text(
-                    "+12% Meningkat dalam 15 hari sebelumnya",
-                    style: TextStyle(fontSize: 8, fontWeight: FontWeight.w600),
+                  child: Text(
+                    percentageText.isNotEmpty
+                        ? percentageText
+                        : "Menghitung data...", 
+                    style: const TextStyle(
+                      fontSize: 8,
+                      fontWeight: FontWeight.w600,
+                    ),
                     overflow: TextOverflow.ellipsis,
                   ),
                 ),
@@ -524,42 +596,70 @@ class _HomePageState extends State<HomePage> {
                 "My Goals",
                 style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
               ),
-              Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 16,
-                  vertical: 10,
-                ),
-                decoration: BoxDecoration(
-                  color: const Color(0xFFFFC107),
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                child: const Text(
-                  "Add Goals",
-                  style: TextStyle(
-                    fontSize: 10,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.black,
+              GestureDetector(
+                onTap: () async {
+                  final result = await Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => const AddGoalPage(),
+                    ),
+                  );
+                  if (result == true) {
+                    _fetchAllData();
+                  }
+                },
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 10,
+                  ),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFFFC107),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: const Text(
+                    "Add Goals",
+                    style: TextStyle(
+                      fontSize: 10,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.black,
+                    ),
                   ),
                 ),
               ),
             ],
           ),
           const SizedBox(height: 24),
-          _buildGoalItem(
-            icon: Icons.flight,
-            title: "Travel",
-            current: 2000000,
-            target: 5000000,
-            percent: 0.5,
-          ),
-          const SizedBox(height: 24),
-          _buildGoalItem(
-            icon: Icons.directions_car,
-            title: "Car",
-            current: 100000000,
-            target: 400000000,
-            percent: 0.25,
-          ),
+          if (goals.isEmpty)
+            const Text(
+              "Belum ada goals yang dibuat.",
+              style: TextStyle(color: Colors.grey, fontSize: 14),
+            ),
+          ...goals.map((goal) {
+            final String title =
+                goal['category']?['name'] ?? goal['name'] ?? 'Goal';
+            final double target =
+                double.tryParse(goal['amount']?.toString() ?? '0') ?? 0.0;
+            final double current =
+                double.tryParse(
+                  goal['usage']?.toString() ??
+                      goal['current']?.toString() ??
+                      '0',
+                ) ??
+                0.0;
+            final double percent = target > 0 ? (current / target) : 0.0;
+
+            return Padding(
+              padding: const EdgeInsets.only(bottom: 24),
+              child: _buildGoalItem(
+                icon: Icons.track_changes,
+                title: title,
+                current: current,
+                target: target,
+                percent: percent > 1.0 ? 1.0 : percent,
+              ),
+            );
+          }).toList(),
         ],
       ),
     );
@@ -568,8 +668,8 @@ class _HomePageState extends State<HomePage> {
   Widget _buildGoalItem({
     required IconData icon,
     required String title,
-    required int current,
-    required int target,
+    required double current,
+    required double target,
     required double percent,
   }) {
     return Column(
@@ -637,7 +737,10 @@ class _HomePageState extends State<HomePage> {
   }
 
   Widget _buildTracking() {
-    if (income == 0 && expense == 0) {
+    bool isChartZero =
+        chartData.isEmpty || chartData.every((spot) => spot.y == 0);
+
+    if (income == 0 && expense == 0 && isChartZero) {
       return const SizedBox.shrink();
     }
 
@@ -663,95 +766,94 @@ class _HomePageState extends State<HomePage> {
             border: Border.all(color: Colors.grey.shade200),
             borderRadius: BorderRadius.circular(16),
           ),
-          child: LineChart(
-            LineChartData(
-              gridData: FlGridData(
-                show: true,
-                drawVerticalLine: true,
-                horizontalInterval: 150000,
-                getDrawingHorizontalLine: (value) => FlLine(
-                  color: Colors.grey.shade200,
-                  strokeWidth: 1,
-                  dashArray: [5, 5],
-                ),
-                getDrawingVerticalLine: (value) => FlLine(
-                  color: Colors.grey.shade200,
-                  strokeWidth: 1,
-                  dashArray: [5, 5],
-                ),
-              ),
-              titlesData: FlTitlesData(
-                show: true,
-                rightTitles: const AxisTitles(
-                  sideTitles: SideTitles(showTitles: false),
-                ),
-                topTitles: const AxisTitles(
-                  sideTitles: SideTitles(showTitles: false),
-                ),
-                bottomTitles: const AxisTitles(
-                  sideTitles: SideTitles(showTitles: false),
-                ),
-                leftTitles: AxisTitles(
-                  sideTitles: SideTitles(
-                    showTitles: true,
-                    reservedSize: 40,
-                    interval: 150000,
-                    getTitlesWidget: (value, meta) {
-                      if (value == 0) {
-                        return const Text(
-                          '0',
-                          style: TextStyle(fontSize: 10, color: Colors.grey),
-                        );
-                      }
-                      return Text(
-                        '${(value / 1000).toInt()}k',
-                        style: const TextStyle(
-                          fontSize: 10,
-                          color: Colors.grey,
+          child: chartData.isEmpty
+              ? const Center(
+                  child: Text(
+                    "Memuat data grafik...",
+                    style: TextStyle(color: Colors.grey),
+                  ),
+                )
+              : LineChart(
+                  LineChartData(
+                    gridData: FlGridData(
+                      show: true,
+                      drawVerticalLine: true,
+                      horizontalInterval: 150000,
+                      getDrawingHorizontalLine: (value) => FlLine(
+                        color: Colors.grey.shade200,
+                        strokeWidth: 1,
+                        dashArray: [5, 5],
+                      ),
+                      getDrawingVerticalLine: (value) => FlLine(
+                        color: Colors.grey.shade200,
+                        strokeWidth: 1,
+                        dashArray: [5, 5],
+                      ),
+                    ),
+                    titlesData: FlTitlesData(
+                      show: true,
+                      rightTitles: const AxisTitles(
+                        sideTitles: SideTitles(showTitles: false),
+                      ),
+                      topTitles: const AxisTitles(
+                        sideTitles: SideTitles(showTitles: false),
+                      ),
+                      bottomTitles: const AxisTitles(
+                        sideTitles: SideTitles(showTitles: false),
+                      ),
+                      leftTitles: AxisTitles(
+                        sideTitles: SideTitles(
+                          showTitles: true,
+                          reservedSize: 40,
+                          interval: 150000,
+                          getTitlesWidget: (value, meta) {
+                            if (value == 0) {
+                              return const Text(
+                                '0',
+                                style: TextStyle(
+                                  fontSize: 10,
+                                  color: Colors.grey,
+                                ),
+                              );
+                            }
+                            return Text(
+                              '${(value / 1000).toInt()}k',
+                              style: const TextStyle(
+                                fontSize: 10,
+                                color: Colors.grey,
+                              ),
+                            );
+                          },
                         ),
-                      );
-                    },
+                      ),
+                    ),
+                    borderData: FlBorderData(show: false),
+                    lineBarsData: [
+                      LineChartBarData(
+                        spots: chartData,
+                        isCurved: true,
+                        color: Colors.black87,
+                        barWidth: 2,
+                        isStrokeCapRound: true,
+                        dotData: FlDotData(
+                          show: true,
+                          getDotPainter: (spot, percent, barData, index) {
+                            return FlDotCirclePainter(
+                              radius: 4,
+                              color: Colors.white,
+                              strokeWidth: 2,
+                              strokeColor: Colors.black87,
+                            );
+                          },
+                        ),
+                        belowBarData: BarAreaData(
+                          show: true,
+                          color: const Color(0xFFFFC107).withOpacity(0.25),
+                        ),
+                      ),
+                    ],
                   ),
                 ),
-              ),
-              borderData: FlBorderData(show: false),
-              minX: 0,
-              maxX: 5,
-              minY: 0,
-              maxY: 900000,
-              lineBarsData: [
-                LineChartBarData(
-                  spots: const [
-                    FlSpot(0, 720000),
-                    FlSpot(1, 650000),
-                    FlSpot(2, 850000),
-                    FlSpot(3, 500000),
-                    FlSpot(4, 380000),
-                    FlSpot(5, 250000),
-                  ],
-                  isCurved: true,
-                  color: Colors.black87,
-                  barWidth: 2,
-                  isStrokeCapRound: true,
-                  dotData: FlDotData(
-                    show: true,
-                    getDotPainter: (spot, percent, barData, index) {
-                      return FlDotCirclePainter(
-                        radius: 4,
-                        color: Colors.white,
-                        strokeWidth: 2,
-                        strokeColor: Colors.black87,
-                      );
-                    },
-                  ),
-                  belowBarData: BarAreaData(
-                    show: true,
-                    color: const Color(0xFFFFC107).withOpacity(0.25),
-                  ),
-                ),
-              ],
-            ),
-          ),
         ),
       ],
     );
