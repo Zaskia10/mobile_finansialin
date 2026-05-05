@@ -306,13 +306,6 @@ class _HomePageState extends State<HomePage> {
     return Scaffold(
       backgroundColor: const Color(0xFFFAFAFA),
       body: _buildBody(),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () => _navigateToTransaction(isIncome: false),
-        backgroundColor: Colors.grey.shade800,
-        shape: const CircleBorder(),
-        child: const Icon(Icons.blur_on, color: Colors.white),
-      ),
-      floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
       bottomNavigationBar: CustomNavBar(
         currentIndex: _currentIndex,
         onTap: (index) {

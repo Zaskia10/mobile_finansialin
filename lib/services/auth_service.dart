@@ -239,16 +239,86 @@ class AuthService {
     final data = jsonDecode(response.body);
 
     if (response.statusCode == 200) {
+      final userMap = data['data'] ?? data;
       return {
         'success': true,
-        'name': data['name'] ?? data['user']?['name'] ?? 'User',
-        'email': data['email'] ?? data['user']?['email'] ?? '',
-        'phone': data['phone'] ?? data['user']?['phone'] ?? '',
+        'name': userMap['name'] ?? userMap['user']?['name'] ?? 'User',
+        'email': userMap['email'] ?? userMap['user']?['email'] ?? '',
+        'phone': userMap['phone'] ?? userMap['user']?['phone'] ?? '',
+      };
+    } else {
+
+      return {
+        'success': false,
+        'message': data['message'] ?? 'Failed to get profile',
+      };
+    }
+  }
+
+  // Update user profile
+  static Future<Map<String, dynamic>> updateProfile({
+    String? name,
+    String? email,
+  }) async {
+    final token = await getToken();
+    
+    final Map<String, dynamic> body = {};
+    if (name != null && name.isNotEmpty) body['name'] = name;
+    if (email != null && email.isNotEmpty) body['email'] = email;
+
+    final response = await http.put(
+      Uri.parse('$baseUrl/users/profile'),
+      headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+        if (token != null) 'Authorization': 'Bearer $token',
+      },
+      body: jsonEncode(body),
+    );
+
+    final data = jsonDecode(response.body);
+
+    if (response.statusCode == 200) {
+      return {
+        'success': true,
+        'data': data,
+        'message': 'Profile updated successfully',
       };
     } else {
       return {
         'success': false,
-        'message': data['message'] ?? 'Failed to get profile',
+        'message': data['message'] ?? 'Failed to update profile',
+      };
+    }
+  }
+
+  // Delete user account
+  static Future<Map<String, dynamic>> deleteAccount({
+    required String password,
+  }) async {
+    final token = await getToken();
+    final response = await http.delete(
+      Uri.parse('$baseUrl/users/account'),
+      headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+        if (token != null) 'Authorization': 'Bearer $token',
+      },
+      body: jsonEncode({'password': password}),
+    );
+
+    final data = jsonDecode(response.body);
+
+    if (response.statusCode == 200) {
+      await clearToken();
+      return {
+        'success': true,
+        'message': data['message'] ?? 'Akun berhasil dihapus',
+      };
+    } else {
+      return {
+        'success': false,
+        'message': data['message'] ?? 'Gagal menghapus akun',
       };
     }
   }
