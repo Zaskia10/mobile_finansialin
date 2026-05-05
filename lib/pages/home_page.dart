@@ -10,6 +10,7 @@ import 'transaction_pengeluaran.dart';
 import 'profile_page.dart';
 import 'chatbot_page.dart';
 import 'add_goal_page.dart';
+import 'riwayat_page.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({Key? key}) : super(key: key);
@@ -294,7 +295,7 @@ class _HomePageState extends State<HomePage> {
       case 2:
         return const AIAssistantScreen();
       case 3:
-        return _buildPlaceholderPage('Riwayat');
+        return const RiwayatPage();
       default:
         return _buildHomeContent();
     }
