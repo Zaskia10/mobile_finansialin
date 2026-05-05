@@ -156,16 +156,39 @@ class AuthService {
     }
   }
 
+  // Verify forgot password OTP
+  static Future<Map<String, dynamic>> verifyForgotPasswordOtp({
+    required String email,
+    required String code,
+  }) async {
+    final response = await http.post(
+      Uri.parse('$baseUrl/auth/forgot-password/verify'),
+      headers: {'Content-Type': 'application/json'},
+      body: jsonEncode({'email': email, 'code': code}),
+    );
+
+    final data = jsonDecode(response.body);
+
+    if (response.statusCode == 200) {
+      return {'success': true, 'message': data['message'] ?? 'OTP verified'};
+    } else {
+      return {
+        'success': false,
+        'message': data['message'] ?? 'OTP verification failed',
+      };
+    }
+  }
+
   // Reset password
   static Future<Map<String, dynamic>> resetPassword({
     required String email,
-    required String token,
+    required String code,
     required String password,
   }) async {
     final response = await http.post(
       Uri.parse('$baseUrl/auth/reset-password'),
       headers: {'Content-Type': 'application/json'},
-      body: jsonEncode({'email': email, 'token': token, 'password': password}),
+      body: jsonEncode({'email': email, 'code': code, 'password': password}),
     );
 
     final data = jsonDecode(response.body);

@@ -4,12 +4,12 @@ import '../services/auth_service.dart';
 
 class ResetPasswordPage extends StatefulWidget {
   final String email;
-  final String token;
+  final String otpCode;
 
   const ResetPasswordPage({
     super.key,
     required this.email,
-    required this.token,
+    required this.otpCode,
   });
 
   @override
@@ -69,19 +69,21 @@ class _ResetPasswordPageState extends State<ResetPasswordPage> {
     try {
       final result = await AuthService.resetPassword(
         email: widget.email,
-        token: widget.token,
+        code: widget.otpCode,
         password: password,
       );
 
       if (result['success']) {
         _showMessage(
-          result['message'] ?? 'Password berhasil direset',
+          'Password berhasil direset',
           backgroundColor: Colors.green,
         );
-        Navigator.of(context).pushAndRemoveUntil(
-          MaterialPageRoute(builder: (_) => const LoginPage()),
-          (route) => false,
-        );
+        if (mounted) {
+          Navigator.of(context).pushAndRemoveUntil(
+            MaterialPageRoute(builder: (_) => const LoginPage()),
+            (route) => false,
+          );
+        }
       } else {
         _showMessage(
           result['message'] ?? 'Gagal mereset password',
@@ -104,15 +106,15 @@ class _ResetPasswordPageState extends State<ResetPasswordPage> {
       hintText: hintText,
       hintStyle: const TextStyle(color: Color(0xFFCCCCCC), fontSize: 14),
       border: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(8),
         borderSide: const BorderSide(color: Color(0xFFE0E0E0), width: 1),
       ),
       enabledBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(8),
         borderSide: const BorderSide(color: Color(0xFFE0E0E0), width: 1),
       ),
       focusedBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(8),
         borderSide: const BorderSide(color: Color(0xFFFFC107), width: 2),
       ),
       filled: true,
@@ -134,7 +136,10 @@ class _ResetPasswordPageState extends State<ResetPasswordPage> {
           icon: const Icon(Icons.arrow_back),
           onPressed: () => Navigator.of(context).pop(),
         ),
-        title: const Text('Lupa password?'),
+        title: const Text(
+          'Lupa password?',
+          style: TextStyle(fontWeight: FontWeight.bold),
+        ),
       ),
       body: SingleChildScrollView(
         child: Padding(
@@ -144,14 +149,15 @@ class _ResetPasswordPageState extends State<ResetPasswordPage> {
             children: [
               SizedBox(height: size.height * 0.04),
               const Text(
-                'Masukkan password baru anda',
+                'Masukkan\npassword baru\nanda',
                 style: TextStyle(
                   fontSize: 32,
                   fontWeight: FontWeight.bold,
                   color: Colors.black,
+                  height: 1.2,
                 ),
               ),
-              const SizedBox(height: 24),
+              const SizedBox(height: 32),
               const Text(
                 'New Password',
                 style: TextStyle(
@@ -164,27 +170,26 @@ class _ResetPasswordPageState extends State<ResetPasswordPage> {
               TextFormField(
                 controller: _passwordController,
                 obscureText: _obscurePassword,
-                decoration:
-                    _buildInputDecoration(
-                      hintText: 'Masukkan password anda',
-                    ).copyWith(
-                      suffixIcon: GestureDetector(
-                        onTap: () {
-                          setState(() {
-                            _obscurePassword = !_obscurePassword;
-                          });
-                        },
-                        child: Icon(
-                          _obscurePassword
-                              ? Icons.visibility_off
-                              : Icons.visibility,
-                          color: const Color(0xFF999999),
-                          size: 20,
-                        ),
-                      ),
+                decoration: _buildInputDecoration(
+                  hintText: 'Masukkan password anda',
+                ).copyWith(
+                  suffixIcon: GestureDetector(
+                    onTap: () {
+                      setState(() {
+                        _obscurePassword = !_obscurePassword;
+                      });
+                    },
+                    child: Icon(
+                      _obscurePassword
+                          ? Icons.visibility_off
+                          : Icons.visibility,
+                      color: const Color(0xFF999999),
+                      size: 20,
                     ),
+                  ),
+                ),
               ),
-              const SizedBox(height: 16),
+              const SizedBox(height: 24),
               const Text(
                 'Confirm Password',
                 style: TextStyle(
@@ -197,27 +202,26 @@ class _ResetPasswordPageState extends State<ResetPasswordPage> {
               TextFormField(
                 controller: _confirmController,
                 obscureText: _obscureConfirm,
-                decoration:
-                    _buildInputDecoration(
-                      hintText: 'Konfirmasi password anda',
-                    ).copyWith(
-                      suffixIcon: GestureDetector(
-                        onTap: () {
-                          setState(() {
-                            _obscureConfirm = !_obscureConfirm;
-                          });
-                        },
-                        child: Icon(
-                          _obscureConfirm
-                              ? Icons.visibility_off
-                              : Icons.visibility,
-                          color: const Color(0xFF999999),
-                          size: 20,
-                        ),
-                      ),
+                decoration: _buildInputDecoration(
+                  hintText: 'Konfirmasi password anda',
+                ).copyWith(
+                  suffixIcon: GestureDetector(
+                    onTap: () {
+                      setState(() {
+                        _obscureConfirm = !_obscureConfirm;
+                      });
+                    },
+                    child: Icon(
+                      _obscureConfirm
+                          ? Icons.visibility_off
+                          : Icons.visibility,
+                      color: const Color(0xFF999999),
+                      size: 20,
                     ),
+                  ),
+                ),
               ),
-              SizedBox(height: size.height * 0.05),
+              SizedBox(height: size.height * 0.06),
               SizedBox(
                 width: double.infinity,
                 height: 52,

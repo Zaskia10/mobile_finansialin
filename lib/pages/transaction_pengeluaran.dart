@@ -1,15 +1,14 @@
-import 'dart:typed_data';
-import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:image_picker/image_picker.dart';
-import 'package:intl/intl.dart';
 import 'transaction_pemasukan.dart';
 import '../widgets/topbar.dart';
 import '../services/auth_service.dart';
 import 'scan_receipt_page.dart';
+
+
 
 class TransactionPengeluaran extends StatefulWidget {
   const TransactionPengeluaran({Key? key}) : super(key: key);
@@ -38,11 +37,9 @@ class _TransactionPengeluaranState extends State<TransactionPengeluaran> {
 
   DateTime? selectedDate;
 
-  Uint8List? receiptImageBytes;
-  XFile? receiptXFile;
-  final ImagePicker _picker = ImagePicker();
 
   bool isLoading = false;
+
 
   @override
   void initState() {
@@ -155,71 +152,6 @@ class _TransactionPengeluaranState extends State<TransactionPengeluaran> {
     }
   }
 
-  Future<void> _selectImage(ImageSource source) async {
-    final xfile = await _picker.pickImage(
-      source: source,
-      maxWidth: 1920,
-      imageQuality: 85,
-    );
-    if (xfile != null) {
-      final bytes = await xfile.readAsBytes();
-      setState(() {
-        receiptXFile = xfile;
-        receiptImageBytes = bytes;
-      });
-    }
-  }
-
-  Future<void> pickImage() async {
-    showModalBottomSheet(
-      context: context,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
-      ),
-      builder: (ctx) => SafeArea(
-        child: Wrap(
-          children: [
-            if (!kIsWeb)
-              ListTile(
-                leading: const Icon(Icons.camera_alt, color: Color(0xFFFFC107)),
-                title: const Text("Ambil dari Kamera"),
-                onTap: () async {
-                  Navigator.pop(ctx);
-                  await _selectImage(ImageSource.camera);
-                },
-              ),
-            ListTile(
-              leading: const Icon(
-                Icons.photo_library,
-                color: Color(0xFFFFC107),
-              ),
-              title: const Text("Pilih dari Galeri"),
-              onTap: () async {
-                Navigator.pop(ctx);
-                await _selectImage(ImageSource.gallery);
-              },
-            ),
-            if (receiptImageBytes != null)
-              ListTile(
-                leading: const Icon(Icons.delete, color: Colors.red),
-                title: const Text(
-                  "Hapus Gambar",
-                  style: TextStyle(color: Colors.red),
-                ),
-                onTap: () {
-                  Navigator.pop(ctx);
-                  setState(() {
-                    receiptImageBytes = null;
-                    receiptXFile = null;
-                  });
-                },
-              ),
-          ],
-        ),
-      ),
-    );
-  }
-
   void _setToday() {
     setState(() {
       _isToday = !_isToday;
@@ -238,12 +170,36 @@ class _TransactionPengeluaranState extends State<TransactionPengeluaran> {
       context,
       MaterialPageRoute(builder: (_) => const ScanReceiptPage()),
     );
-    if (result != null && result is XFile) {
-      final bytes = await result.readAsBytes();
+
+    if (result != null && result is Map && result['status'] == 'success') {
+      final ocrData = result['ocr_data'];
+      
       setState(() {
-        receiptXFile = result;
-        receiptImageBytes = bytes;
+        // Set Jumlah (Amount)
+        if (ocrData['total_amount'] != null && ocrData['total_amount'] > 0) {
+          amountController.text = ocrData['total_amount'].toInt().toString();
+        }
+
+        // Set Kategori (Suggested)
+        if (ocrData['suggested_category'] != null) {
+          final suggested = ocrData['suggested_category'].toString().toLowerCase();
+          try {
+            selectedCategory = categories.firstWhere(
+              (cat) => cat['name'].toString().toLowerCase().contains(suggested) || 
+                       suggested.contains(cat['name'].toString().toLowerCase()),
+            );
+          } catch (_) {
+            // Jika tidak ketemu, biarkan user pilih manual atau set default
+          }
+        }
       });
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text("Berhasil memindai struk${ocrData['merchant_name'] != null ? ' dari ${ocrData['merchant_name']}' : ''}"),
+          backgroundColor: Colors.green,
+        ),
+      );
     }
   }
 
@@ -341,6 +297,7 @@ class _TransactionPengeluaranState extends State<TransactionPengeluaran> {
           ),
         ],
       ),
+
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(24.0),
         child: Column(
@@ -516,17 +473,6 @@ class _TransactionPengeluaranState extends State<TransactionPengeluaran> {
             ),
             const SizedBox(height: 24),
 
-            const Text(
-              "Bukti Pembayaran",
-              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
-            ),
-            const SizedBox(height: 8),
-            GestureDetector(
-              onTap: pickImage,
-              child: receiptImageBytes != null
-                  ? _buildImagePreview()
-                  : _buildUploadPlaceholder("bukti pembayaran"),
-            ),
             const SizedBox(height: 40),
 
             SizedBox(
@@ -719,105 +665,6 @@ class _TransactionPengeluaranState extends State<TransactionPengeluaran> {
           onChanged: onChanged,
         ),
       ),
-    );
-  }
-
-  Widget _buildUploadPlaceholder(String label) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.symmetric(vertical: 24),
-      decoration: BoxDecoration(
-        color: const Color(0xFFF8F8F8),
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: Colors.grey.shade300),
-      ),
-      child: Column(
-        children: [
-          const Icon(
-            Icons.note_add_rounded,
-            color: Color(0xFFFFC107),
-            size: 40,
-          ),
-          const SizedBox(height: 12),
-          RichText(
-            text: TextSpan(
-              text: "Klik disini ",
-              style: const TextStyle(
-                color: Color(0xFFFFC107),
-                fontWeight: FontWeight.bold,
-                fontSize: 12,
-              ),
-              children: [
-                TextSpan(
-                  text: "untuk unggah $label.",
-                  style: const TextStyle(color: Colors.black87),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 4),
-          const Text(
-            "Support Format : JPG, JPEG, PNG, WEBP (maks. 4MB)",
-            style: TextStyle(color: Colors.grey, fontSize: 10),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildImagePreview() {
-    return Stack(
-      children: [
-        ClipRRect(
-          borderRadius: BorderRadius.circular(8),
-          child: Image.memory(
-            receiptImageBytes!,
-            width: double.infinity,
-            height: 180,
-            fit: BoxFit.cover,
-          ),
-        ),
-        Positioned(
-          top: 8,
-          right: 8,
-          child: GestureDetector(
-            onTap: () => setState(() {
-              receiptImageBytes = null;
-              receiptXFile = null;
-            }),
-            child: Container(
-              padding: const EdgeInsets.all(4),
-              decoration: const BoxDecoration(
-                color: Colors.black54,
-                shape: BoxShape.circle,
-              ),
-              child: const Icon(Icons.close, color: Colors.white, size: 16),
-            ),
-          ),
-        ),
-        Positioned(
-          bottom: 8,
-          right: 8,
-          child: GestureDetector(
-            onTap: pickImage,
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-              decoration: BoxDecoration(
-                color: const Color(0xFFFFC107),
-                borderRadius: BorderRadius.circular(6),
-              ),
-              child: const Text(
-                "Ganti",
-                style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 11,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-            ),
-          ),
-        ),
-      ],
     );
   }
 }

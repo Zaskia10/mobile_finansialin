@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../services/auth_service.dart';
+import 'forgot_password_otp.dart';
 
 class ForgotPasswordPage extends StatefulWidget {
   const ForgotPasswordPage({super.key});
@@ -45,9 +46,16 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
       final result = await AuthService.forgotPassword(email: email);
       if (result['success']) {
         _showMessage(
-          result['message'] ?? 'Email reset password dikirim',
+          'Kode OTP telah dikirim ke email Anda',
           backgroundColor: Colors.green,
         );
+        if (mounted) {
+          Navigator.of(context).push(
+            MaterialPageRoute(
+              builder: (_) => ForgotPasswordOtpPage(email: email),
+            ),
+          );
+        }
       } else {
         _showMessage(
           result['message'] ?? 'Gagal mengirim email',
@@ -78,7 +86,10 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
           icon: const Icon(Icons.arrow_back),
           onPressed: () => Navigator.of(context).pop(),
         ),
-        title: const Text('Lupa password?'),
+        title: const Text(
+          'Lupa password?',
+          style: TextStyle(fontWeight: FontWeight.bold),
+        ),
       ),
       body: SingleChildScrollView(
         child: Padding(
@@ -88,16 +99,17 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
             children: [
               SizedBox(height: size.height * 0.04),
               const Text(
-                'Reset password anda sekarang',
+                'Reset password\nanda sekarang',
                 style: TextStyle(
                   fontSize: 32,
                   fontWeight: FontWeight.bold,
                   color: Colors.black,
+                  height: 1.2,
                 ),
               ),
               const SizedBox(height: 16),
               const Text(
-                'Masukkan email yang terdaftar untuk menerima tautan reset password.',
+                'Masukkan email yang terdaftar untuk menerima kode OTP reset password.',
                 style: TextStyle(
                   fontSize: 14,
                   color: Color(0xFF6B6B6B),
@@ -178,7 +190,7 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
                           ),
                         )
                       : const Text(
-                          'Kirim email',
+                          'Kirim kode OTP',
                           style: TextStyle(
                             fontSize: 16,
                             fontWeight: FontWeight.bold,

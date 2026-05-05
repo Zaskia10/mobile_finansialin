@@ -1,6 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:camera/camera.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:dio/dio.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
+import '../services/auth_service.dart';
+
 
 class ScanReceiptPage extends StatefulWidget {
   const ScanReceiptPage({Key? key}) : super(key: key);
@@ -14,14 +18,42 @@ class _ScanReceiptPageState extends State<ScanReceiptPage> {
   List<CameraDescription>? cameras;
   bool _isCameraInitialized = false;
   bool _isFlashOn = false;
+  bool _isProcessing = false;
+  late Dio _dio;
+
 
   final ImagePicker _picker = ImagePicker();
 
   @override
   void initState() {
     super.initState();
+    _initDio();
     _initCamera();
   }
+
+  void _initDio() {
+    _dio = Dio(
+      BaseOptions(
+        baseUrl: dotenv.env['BASE_URL']!,
+        connectTimeout: const Duration(seconds: 30),
+        receiveTimeout: const Duration(seconds: 30),
+        headers: {"Accept": "application/json"},
+      ),
+    );
+
+    _dio.interceptors.add(
+      InterceptorsWrapper(
+        onRequest: (options, handler) async {
+          final token = await AuthService.getToken();
+          if (token != null) {
+            options.headers['Authorization'] = 'Bearer $token';
+          }
+          return handler.next(options);
+        },
+      ),
+    );
+  }
+
 
   Future<void> _initCamera() async {
     try {
@@ -69,23 +101,61 @@ class _ScanReceiptPageState extends State<ScanReceiptPage> {
     }
   }
 
+  Future<void> _processImage(XFile imageFile) async {
+    setState(() => _isProcessing = true);
+
+    try {
+      final formData = FormData.fromMap({
+        'receiptImage': await MultipartFile.fromFile(
+          imageFile.path,
+          filename: imageFile.name,
+        ),
+      });
+
+      final response = await _dio.post('/insights/receipt-ocr', data: formData);
+
+      if (response.statusCode == 200 && mounted) {
+        // Berhasil OCR, kembalikan data ke halaman transaksi
+        Navigator.pop(context, {
+          'status': 'success',
+          'ocr_data': response.data['data'],
+          'image_path': imageFile.path,
+        });
+      } else if (mounted) {
+        throw Exception("Gagal memproses struk");
+      }
+    } catch (e) {
+      debugPrint("Error OCR: $e");
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text("Gagal mendeteksi struk: ${e.toString()}"),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isProcessing = false);
+      }
+    }
+  }
+
   Future<void> _takePicture() async {
-    if (_cameraController == null || !_cameraController!.value.isInitialized) {
+    if (_cameraController == null || !_cameraController!.value.isInitialized || _isProcessing) {
       return;
     }
 
     try {
       final XFile picture = await _cameraController!.takePicture();
-      // Kembalikan file gambar ke halaman sebelumnya
-      if (mounted) {
-        Navigator.pop(context, picture);
-      }
+      await _processImage(picture);
     } catch (e) {
       debugPrint("Gagal mengambil gambar: $e");
     }
   }
 
   Future<void> _pickFromGallery() async {
+    if (_isProcessing) return;
     try {
       final XFile? image = await _picker.pickImage(
         source: ImageSource.gallery,
@@ -93,12 +163,13 @@ class _ScanReceiptPageState extends State<ScanReceiptPage> {
         imageQuality: 85,
       );
       if (image != null && mounted) {
-        Navigator.pop(context, image);
+        await _processImage(image);
       }
     } catch (e) {
       debugPrint("Gagal membuka galeri: $e");
     }
   }
+
 
   @override
   Widget build(BuildContext context) {
@@ -194,7 +265,7 @@ class _ScanReceiptPageState extends State<ScanReceiptPage> {
                     width: double.infinity,
                     height: 48,
                     child: ElevatedButton(
-                      onPressed: _takePicture,
+                      onPressed: _isProcessing ? null : _takePicture,
                       style: ElevatedButton.styleFrom(
                         backgroundColor: const Color(0xFFFFC107),
                         elevation: 0,
@@ -240,6 +311,25 @@ class _ScanReceiptPageState extends State<ScanReceiptPage> {
               ),
             ),
           ),
+
+          // Loading Overlay
+          if (_isProcessing)
+            Container(
+              color: Colors.black54,
+              child: const Center(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    CircularProgressIndicator(color: Color(0xFFFFC107)),
+                    SizedBox(height: 16),
+                    Text(
+                      "Menganalisis Struk...",
+                      style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                    ),
+                  ],
+                ),
+              ),
+            ),
         ],
       ),
     );
