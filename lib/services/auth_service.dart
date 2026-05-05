@@ -7,7 +7,6 @@ class AuthService {
   // Ganti dengan IP address komputer kamu yang sebenarnya
   static String baseUrl = dotenv.env['BASE_URL']!;
 
-  // Simpan token ke SharedPreferences
   static Future<void> saveToken(
     String accessToken, {
     String? refreshToken,
@@ -19,20 +18,17 @@ class AuthService {
     }
   }
 
-  // Ambil token dari SharedPreferences
   static Future<String?> getToken() async {
     final prefs = await SharedPreferences.getInstance();
     return prefs.getString('access_token');
   }
 
-  // Hapus token (logout)
   static Future<void> clearToken() async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove('access_token');
     await prefs.remove('refresh_token');
   }
 
-  // Register user
   static Future<Map<String, dynamic>> register({
     required String email,
     required String password,
@@ -52,9 +48,6 @@ class AuthService {
         if (phone != null) 'phone': phone,
       }),
     );
-
-    print("STATUS: ${response.statusCode}");
-    print("BODY: ${response.body}");
 
     final data = jsonDecode(response.body);
 
@@ -82,7 +75,7 @@ class AuthService {
     final data = jsonDecode(response.body);
 
     if (response.statusCode == 200) {
-      // Login tanpa 2FA - simpan token langsung
+      // Login tanpa 2FA
       if (data['accessToken'] != null) {
         await saveToken(
           data['accessToken'],
@@ -274,7 +267,6 @@ class AuthService {
     final data = jsonDecode(response.body);
 
     if (response.statusCode == 200) {
-      // Simpan token secara otomatis
       if (data['accessToken'] != null) {
         await saveToken(
           data['accessToken'],

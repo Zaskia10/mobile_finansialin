@@ -29,7 +29,9 @@ class ApiService {
     if (response.statusCode == 200) {
       return {
         'success': true,
-        'totalBalance': double.tryParse(data['data']?['totalBalance']?.toString() ?? '0') ?? 0.0,
+        'totalBalance':
+            double.tryParse(data['data']?['totalBalance']?.toString() ?? '0') ??
+            0.0,
         'resources': data['data']?['resources'] ?? [],
       };
     } else {
@@ -104,5 +106,18 @@ class ApiService {
         'message': data['message'] ?? 'Gagal menyimpan saldo awal',
       };
     }
+  }
+
+  static Future<http.Response> post(
+    String endpoint,
+    Map<String, dynamic> payload,
+  ) async {
+    final headers = await _authHeaders();
+    final response = await http.post(
+      Uri.parse('$baseUrl$endpoint'),
+      headers: headers,
+      body: jsonEncode(payload),
+    );
+    return response;
   }
 }

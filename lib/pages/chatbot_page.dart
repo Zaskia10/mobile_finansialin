@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import '../widgets/topbar.dart';
-import '../widgets/navbar.dart';
 
 class AIAssistantScreen extends StatefulWidget {
   const AIAssistantScreen({Key? key}) : super(key: key);
@@ -105,7 +104,7 @@ class _AIAssistantScreenState extends State<AIAssistantScreen> {
                       child: TextField(
                         controller: _chatController,
                         decoration: const InputDecoration(
-                          hintText: "Tanya Finanace",
+                          hintText: "Tanya Finance",
                           border: InputBorder.none,
                           hintStyle: TextStyle(
                             color: Colors.black87,
@@ -128,27 +127,6 @@ class _AIAssistantScreenState extends State<AIAssistantScreen> {
           ),
         ),
       ),
-      floatingActionButton: Container(
-        height: 64,
-        width: 64,
-        decoration: BoxDecoration(
-          shape: BoxShape.circle,
-          gradient: const LinearGradient(
-            colors: [Color(0xFFE6FF00), Color(0xFFFFC107)],
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-          ),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.yellow.withOpacity(0.4),
-              blurRadius: 8,
-              offset: const Offset(0, 4),
-            ),
-          ],
-        ),
-      ),
-      floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
-      bottomNavigationBar: CustomNavBar(currentIndex: -1, onTap: (index) {}),
     );
   }
 }
