@@ -36,7 +36,6 @@ class CustomNavBar extends StatelessWidget {
                 ),
               ),
             ),
-
             Positioned(
               left: 0,
               right: 0,
@@ -94,7 +93,6 @@ class CustomNavBar extends StatelessWidget {
     required int index,
   }) {
     bool isSelected = currentIndex == index;
-
     return GestureDetector(
       onTap: () => onTap(index),
       behavior: HitTestBehavior.opaque,
@@ -125,7 +123,6 @@ class CustomNavBar extends StatelessWidget {
 
   Widget _buildCenterItem() {
     bool isSelected = currentIndex == 2;
-
     return GestureDetector(
       onTap: () => onTap(2),
       behavior: HitTestBehavior.opaque,
