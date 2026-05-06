@@ -721,7 +721,7 @@ class _AnalisisPageState extends State<AnalisisPage> {
                   '${_totalIncome > 0 ? ((_totalSavings / _totalIncome) * 100).toStringAsFixed(0) : 0}%',
               iconColor: const Color(0xFFE53E3E),
               iconBgColor: const Color(0xFFFDE8E8),
-              icon: Icons.savings,
+              icon: Icons.account_balance,
             ),
             _buildStatCard(
               title: 'Rata-rata Pemasukan',
