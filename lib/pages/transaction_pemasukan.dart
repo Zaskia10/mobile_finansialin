@@ -34,9 +34,7 @@ class _TransactionPemasukanState extends State<TransactionPemasukan> {
 
   DateTime? selectedDate;
 
-
   bool isLoading = false;
-
 
   @override
   void initState() {
@@ -54,7 +52,9 @@ class _TransactionPemasukanState extends State<TransactionPemasukan> {
       InterceptorsWrapper(
         onRequest: (options, handler) async {
           final token = await AuthService.getToken();
-          debugPrint("TOKEN PEMASUKAN: ${token != null ? 'Tersedia' : 'KOSONG!'}");
+          debugPrint(
+            "TOKEN PEMASUKAN: ${token != null ? 'Tersedia' : 'KOSONG!'}",
+          );
           if (token != null) {
             options.headers['Authorization'] = 'Bearer $token';
           }
@@ -147,7 +147,6 @@ class _TransactionPemasukanState extends State<TransactionPemasukan> {
   }
 
   void _setToday() {
-
     setState(() {
       _isToday = !_isToday;
       if (_isToday) {
@@ -161,7 +160,9 @@ class _TransactionPemasukanState extends State<TransactionPemasukan> {
   }
 
   Future<void> saveTransaction() async {
-    if (amountController.text.isEmpty || selectedCategory == null || selectedResource == null) {
+    if (amountController.text.isEmpty ||
+        selectedCategory == null ||
+        selectedResource == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text("Jumlah, kategori, dan dompet wajib diisi"),
@@ -178,10 +179,14 @@ class _TransactionPemasukanState extends State<TransactionPemasukan> {
           ? DateTime.now()
           : (selectedDate ?? DateTime.now());
 
-      final cleanAmount = amountController.text.replaceAll(RegExp(r'[^0-9]'), '');
+      final cleanAmount = amountController.text.replaceAll(
+        RegExp(r'[^0-9]'),
+        '',
+      );
 
       // Coba ambil ID kategori dari key yang mungkin berbeda
-      final dynamic catId = selectedCategory['idCategory'] ?? selectedCategory['id'];
+      final dynamic catId =
+          selectedCategory['idCategory'] ?? selectedCategory['id'];
 
       final Map<String, dynamic> formFields = {
         "type": "income",
@@ -570,20 +575,17 @@ class _TransactionPemasukanState extends State<TransactionPemasukan> {
             style: const TextStyle(color: Colors.grey, fontSize: 14),
           ),
           isExpanded: true,
-          items: items
-              .map(
-                (item) {
-                  final String label = item['name']?.toString() ?? item['source']?.toString() ?? '-';
-                  return DropdownMenuItem(
-                    value: item,
-                    child: Text(
-                      label,
-                      style: const TextStyle(color: Colors.black, fontSize: 14),
-                    ),
-                  );
-                },
-              )
-              .toList(),
+          items: items.map((item) {
+            final String label =
+                item['name']?.toString() ?? item['source']?.toString() ?? '-';
+            return DropdownMenuItem(
+              value: item,
+              child: Text(
+                label,
+                style: const TextStyle(color: Colors.black, fontSize: 14),
+              ),
+            );
+          }).toList(),
           onChanged: onChanged,
         ),
       ),

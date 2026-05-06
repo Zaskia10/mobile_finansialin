@@ -470,7 +470,7 @@ class _HomePageState extends State<HomePage> {
                   child: Text(
                     percentageText.isNotEmpty
                         ? percentageText
-                        : "Menghitung data...", 
+                        : "Menghitung data...",
                     style: const TextStyle(
                       fontSize: 8,
                       fontWeight: FontWeight.w600,
@@ -635,24 +635,41 @@ class _HomePageState extends State<HomePage> {
               "Belum ada goals yang dibuat.",
               style: TextStyle(color: Colors.grey, fontSize: 14),
             ),
+
           ...goals.map((goal) {
             final String title =
-                goal['category']?['name'] ?? goal['name'] ?? 'Goal';
+                goal['category']?['name'] ??
+                goal['categoryName'] ??
+                goal['name'] ??
+                'Goal';
+
             final double target =
-                double.tryParse(goal['amount']?.toString() ?? '0') ?? 0.0;
+                double.tryParse(
+                  goal['amount']?.toString() ??
+                      goal['total']?.toString() ??
+                      goal['budgetAmount']?.toString() ??
+                      '0',
+                ) ??
+                0.0;
+
             final double current =
                 double.tryParse(
-                  goal['usage']?.toString() ??
+                  goal['used']?.toString() ??
+                      goal['spent']?.toString() ??
+                      goal['usage']?.toString() ??
                       goal['current']?.toString() ??
                       '0',
                 ) ??
                 0.0;
+
             final double percent = target > 0 ? (current / target) : 0.0;
+
+            IconData iconData = Icons.track_changes;
 
             return Padding(
               padding: const EdgeInsets.only(bottom: 24),
               child: _buildGoalItem(
-                icon: Icons.track_changes,
+                icon: iconData,
                 title: title,
                 current: current,
                 target: target,
@@ -740,7 +757,7 @@ class _HomePageState extends State<HomePage> {
     bool isChartZero =
         chartData.isEmpty || chartData.every((spot) => spot.y == 0);
 
-    if (income == 0 && expense == 0 && isChartZero) {
+    if (isChartZero) {
       return const SizedBox.shrink();
     }
 
@@ -766,94 +783,85 @@ class _HomePageState extends State<HomePage> {
             border: Border.all(color: Colors.grey.shade200),
             borderRadius: BorderRadius.circular(16),
           ),
-          child: chartData.isEmpty
-              ? const Center(
-                  child: Text(
-                    "Memuat data grafik...",
-                    style: TextStyle(color: Colors.grey),
-                  ),
-                )
-              : LineChart(
-                  LineChartData(
-                    gridData: FlGridData(
-                      show: true,
-                      drawVerticalLine: true,
-                      horizontalInterval: 150000,
-                      getDrawingHorizontalLine: (value) => FlLine(
-                        color: Colors.grey.shade200,
-                        strokeWidth: 1,
-                        dashArray: [5, 5],
-                      ),
-                      getDrawingVerticalLine: (value) => FlLine(
-                        color: Colors.grey.shade200,
-                        strokeWidth: 1,
-                        dashArray: [5, 5],
-                      ),
-                    ),
-                    titlesData: FlTitlesData(
-                      show: true,
-                      rightTitles: const AxisTitles(
-                        sideTitles: SideTitles(showTitles: false),
-                      ),
-                      topTitles: const AxisTitles(
-                        sideTitles: SideTitles(showTitles: false),
-                      ),
-                      bottomTitles: const AxisTitles(
-                        sideTitles: SideTitles(showTitles: false),
-                      ),
-                      leftTitles: AxisTitles(
-                        sideTitles: SideTitles(
-                          showTitles: true,
-                          reservedSize: 40,
-                          interval: 150000,
-                          getTitlesWidget: (value, meta) {
-                            if (value == 0) {
-                              return const Text(
-                                '0',
-                                style: TextStyle(
-                                  fontSize: 10,
-                                  color: Colors.grey,
-                                ),
-                              );
-                            }
-                            return Text(
-                              '${(value / 1000).toInt()}k',
-                              style: const TextStyle(
-                                fontSize: 10,
-                                color: Colors.grey,
-                              ),
-                            );
-                          },
+
+          child: LineChart(
+            LineChartData(
+              gridData: FlGridData(
+                show: true,
+                drawVerticalLine: true,
+                horizontalInterval: 150000,
+                getDrawingHorizontalLine: (value) => FlLine(
+                  color: Colors.grey.shade200,
+                  strokeWidth: 1,
+                  dashArray: [5, 5],
+                ),
+                getDrawingVerticalLine: (value) => FlLine(
+                  color: Colors.grey.shade200,
+                  strokeWidth: 1,
+                  dashArray: [5, 5],
+                ),
+              ),
+              titlesData: FlTitlesData(
+                show: true,
+                rightTitles: const AxisTitles(
+                  sideTitles: SideTitles(showTitles: false),
+                ),
+                topTitles: const AxisTitles(
+                  sideTitles: SideTitles(showTitles: false),
+                ),
+                bottomTitles: const AxisTitles(
+                  sideTitles: SideTitles(showTitles: false),
+                ),
+                leftTitles: AxisTitles(
+                  sideTitles: SideTitles(
+                    showTitles: true,
+                    reservedSize: 40,
+                    interval: 150000,
+                    getTitlesWidget: (value, meta) {
+                      if (value == 0) {
+                        return const Text(
+                          '0',
+                          style: TextStyle(fontSize: 10, color: Colors.grey),
+                        );
+                      }
+                      return Text(
+                        '${(value / 1000).toInt()}k',
+                        style: const TextStyle(
+                          fontSize: 10,
+                          color: Colors.grey,
                         ),
-                      ),
-                    ),
-                    borderData: FlBorderData(show: false),
-                    lineBarsData: [
-                      LineChartBarData(
-                        spots: chartData,
-                        isCurved: true,
-                        color: Colors.black87,
-                        barWidth: 2,
-                        isStrokeCapRound: true,
-                        dotData: FlDotData(
-                          show: true,
-                          getDotPainter: (spot, percent, barData, index) {
-                            return FlDotCirclePainter(
-                              radius: 4,
-                              color: Colors.white,
-                              strokeWidth: 2,
-                              strokeColor: Colors.black87,
-                            );
-                          },
-                        ),
-                        belowBarData: BarAreaData(
-                          show: true,
-                          color: const Color(0xFFFFC107).withOpacity(0.25),
-                        ),
-                      ),
-                    ],
+                      );
+                    },
                   ),
                 ),
+              ),
+              borderData: FlBorderData(show: false),
+              lineBarsData: [
+                LineChartBarData(
+                  spots: chartData,
+                  isCurved: true,
+                  color: Colors.black87,
+                  barWidth: 2,
+                  isStrokeCapRound: true,
+                  dotData: FlDotData(
+                    show: true,
+                    getDotPainter: (spot, percent, barData, index) {
+                      return FlDotCirclePainter(
+                        radius: 4,
+                        color: Colors.white,
+                        strokeWidth: 2,
+                        strokeColor: Colors.black87,
+                      );
+                    },
+                  ),
+                  belowBarData: BarAreaData(
+                    show: true,
+                    color: const Color(0xFFFFC107).withOpacity(0.25),
+                  ),
+                ),
+              ],
+            ),
+          ),
         ),
       ],
     );
