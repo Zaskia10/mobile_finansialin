@@ -3,6 +3,14 @@ import 'package:fl_chart/fl_chart.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'dart:math';
+import 'package:intl/intl.dart';
+import 'package:pdf/pdf.dart';
+import 'package:pdf/widgets.dart' as pw;
+import 'package:printing/printing.dart';
+import 'package:excel/excel.dart' as excel_pkg;
+import 'dart:io';
+import 'package:path_provider/path_provider.dart';
+import 'package:share_plus/share_plus.dart';
 import '../services/auth_service.dart';
 
 class AnalisisPage extends StatefulWidget {
@@ -78,7 +86,11 @@ class _AnalisisPageState extends State<AnalisisPage> {
                   ? decoded['data']
                   : []);
         for (var c in catData) {
-          _categoryMap[_parseInt(c['id'])] = c['name']?.toString() ?? 'Lainnya';
+          final name = c['name']?.toString() ?? 'Lainnya';
+          _categoryMap[_parseInt(c['id'])] = name;
+          if (c['idCategory'] != null) {
+            _categoryMap[_parseInt(c['idCategory'])] = name;
+          }
         }
       }
 
@@ -94,10 +106,11 @@ class _AnalisisPageState extends State<AnalisisPage> {
         double tempInc = 0, tempExp = 0;
         for (var t in txData) {
           final amt = _parseDouble(t['amount']);
-          if (t['type'] == 'income')
+          if (t['type'] == 'income') {
             tempInc += amt;
-          else if (t['type'] == 'expense')
+          } else if (t['type'] == 'expense') {
             tempExp += amt;
+          }
         }
         _totalIncome = tempInc;
         _totalExpense = tempExp;
@@ -207,7 +220,9 @@ class _AnalisisPageState extends State<AnalisisPage> {
     final Map<String, double> stats = {};
     for (var t in _transactions) {
       if (t['type'] == 'expense') {
-        final name = _categoryMap[_parseInt(t['idCategory'])] ?? 'Lainnya';
+        final idCat = _parseInt(t['idCategory']);
+        final id = _parseInt(t['id']);
+        final name = _categoryMap[idCat] ?? _categoryMap[id] ?? 'Lainnya';
         stats[name] = (stats[name] ?? 0) + _parseDouble(t['amount']);
       }
     }
@@ -230,10 +245,11 @@ class _AnalisisPageState extends State<AnalisisPage> {
     double inc = 0, exp = 0;
     for (var t in filtered) {
       final amt = _parseDouble(t['amount']);
-      if (t['type'] == 'income')
+      if (t['type'] == 'income') {
         inc += amt;
-      else if (t['type'] == 'expense')
+      } else if (t['type'] == 'expense') {
         exp += amt;
+      }
     }
 
     final filteredBdg = _budgets.where((b) {
@@ -245,12 +261,349 @@ class _AnalisisPageState extends State<AnalisisPage> {
     return {'income': inc, 'expense': exp, 'budgets': filteredBdg};
   }
 
-  String _budgetCategoryName(dynamic b) =>
-      _categoryMap[_parseInt(b['idCategory'])] ?? 'General';
+  String _budgetCategoryName(dynamic b) {
+    int idCat = _parseInt(b['idCategory']);
+    if (_categoryMap.containsKey(idCat)) return _categoryMap[idCat]!;
+    int id = _parseInt(b['id']);
+    if (_categoryMap.containsKey(id)) return _categoryMap[id]!;
+    return 'General';
+  }
 
   Map<String, dynamic> _getBudgetUsage(dynamic b) =>
       _budgetUsageMap[_parseInt(b['id'])] ??
       {'used': 0.0, 'total': 0.0, 'percent': 0.0};
+
+  String _getMonthName(int month) {
+    const monthNames = [
+      'Januari',
+      'Februari',
+      'Maret',
+      'April',
+      'Mei',
+      'Juni',
+      'Juli',
+      'Agustus',
+      'September',
+      'Oktober',
+      'November',
+      'Desember',
+    ];
+    return monthNames[month - 1];
+  }
+
+  Future<void> _exportPdf() async {
+    final rData = _getReportData();
+    final double inc = rData['income'];
+    final double exp = rData['expense'];
+    final double net = inc - exp;
+
+    final filteredTx = _transactions.where((t) {
+      if (t['date'] == null) return false;
+      final d = DateTime.parse(t['date']);
+      return d.month == _reportMonth && d.year == _reportYear;
+    }).toList();
+
+    filteredTx.sort((a, b) {
+      final dateA = DateTime.parse(
+        a['date'] ?? DateTime.now().toIso8601String(),
+      );
+      final dateB = DateTime.parse(
+        b['date'] ?? DateTime.now().toIso8601String(),
+      );
+      return dateB.compareTo(dateA);
+    });
+
+    final pdf = pw.Document();
+
+    pdf.addPage(
+      pw.MultiPage(
+        pageFormat: PdfPageFormat.a4,
+        margin: const pw.EdgeInsets.all(32),
+        header: (pw.Context context) {
+          return pw.Column(
+            children: [
+              pw.Row(
+                mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+                children: [
+                  pw.Text(
+                    DateFormat('d/M/yy, h:mm a').format(DateTime.now()),
+                    style: const pw.TextStyle(fontSize: 8),
+                  ),
+                  pw.Text(
+                    'Laporan Finansialin - ${_getMonthName(_reportMonth)} $_reportYear',
+                    style: const pw.TextStyle(fontSize: 8),
+                  ),
+                ],
+              ),
+              pw.SizedBox(height: 10),
+              pw.Center(
+                child: pw.Text(
+                  'FINANSIALIN',
+                  style: pw.TextStyle(
+                    fontSize: 24,
+                    fontWeight: pw.FontWeight.bold,
+                  ),
+                ),
+              ),
+              pw.SizedBox(height: 4),
+              pw.Center(
+                child: pw.Text(
+                  'Laporan Keuangan: ${_getMonthName(_reportMonth)} $_reportYear',
+                  style: const pw.TextStyle(
+                    fontSize: 12,
+                    color: PdfColors.grey700,
+                  ),
+                ),
+              ),
+              pw.SizedBox(height: 10),
+              pw.Divider(
+                color: PdfColors.grey400,
+                borderStyle: pw.BorderStyle.dashed,
+              ),
+            ],
+          );
+        },
+        build: (pw.Context context) {
+          return [
+            pw.SizedBox(height: 10),
+            pw.Text(
+              'RINGKASAN',
+              style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 10),
+            ),
+            pw.SizedBox(height: 10),
+            pw.Row(
+              mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+              children: [
+                pw.Text(
+                  'Total Pemasukan',
+                  style: const pw.TextStyle(color: PdfColors.grey700),
+                ),
+                pw.Text(
+                  '+ ${_formatCurrency(inc)}',
+                  style: const pw.TextStyle(color: PdfColors.teal),
+                ),
+              ],
+            ),
+            pw.SizedBox(height: 4),
+            pw.Row(
+              mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+              children: [
+                pw.Text(
+                  'Total Pengeluaran',
+                  style: const pw.TextStyle(color: PdfColors.grey700),
+                ),
+                pw.Text(
+                  '- ${_formatCurrency(exp)}',
+                  style: const pw.TextStyle(color: PdfColors.red),
+                ),
+              ],
+            ),
+            pw.SizedBox(height: 10),
+            pw.Divider(
+              color: PdfColors.grey400,
+              borderStyle: pw.BorderStyle.dashed,
+            ),
+            pw.SizedBox(height: 10),
+            pw.Row(
+              mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+              children: [
+                pw.Text(
+                  'Net Savings',
+                  style: pw.TextStyle(
+                    fontWeight: pw.FontWeight.bold,
+                    fontSize: 12,
+                  ),
+                ),
+                pw.Text(
+                  _formatCurrency(net),
+                  style: pw.TextStyle(
+                    fontWeight: pw.FontWeight.bold,
+                    fontSize: 12,
+                  ),
+                ),
+              ],
+            ),
+            pw.SizedBox(height: 20),
+            pw.Text(
+              'DETAIL TRANSAKSI',
+              style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 10),
+            ),
+            pw.SizedBox(height: 10),
+            ...filteredTx.map((t) {
+              final isIncome = t['type'] == 'income';
+              final amtText =
+                  '${isIncome ? '+' : '-'}${_formatCurrency(_parseDouble(t['amount']))}';
+              final color = isIncome ? PdfColors.teal : PdfColors.red;
+
+              final dateStr = t['date'] != null
+                  ? DateFormat('d MMM yyyy').format(DateTime.parse(t['date']))
+                  : '-';
+
+              int idCat = _parseInt(t['idCategory']);
+              String catName = _categoryMap[idCat] ?? 'Lainnya';
+
+              String desc = t['description']?.toString() ?? '';
+              String title = desc.isNotEmpty ? desc : catName;
+
+              return pw.Column(
+                crossAxisAlignment: pw.CrossAxisAlignment.start,
+                children: [
+                  pw.Row(
+                    mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+                    children: [
+                      pw.Expanded(
+                        child: pw.Text(
+                          title,
+                          style: pw.TextStyle(fontWeight: pw.FontWeight.bold),
+                          maxLines: 1,
+                        ),
+                      ),
+                      pw.Text(
+                        amtText,
+                        style: pw.TextStyle(
+                          color: color,
+                          fontWeight: pw.FontWeight.bold,
+                        ),
+                      ),
+                    ],
+                  ),
+                  pw.SizedBox(height: 4),
+                  pw.Text(
+                    '$dateStr • $catName • -',
+                    style: const pw.TextStyle(
+                      color: PdfColors.grey700,
+                      fontSize: 10,
+                    ),
+                  ),
+                  pw.SizedBox(height: 10),
+                  pw.Divider(color: PdfColors.grey300),
+                  pw.SizedBox(height: 10),
+                ],
+              );
+            }).toList(),
+            if (filteredTx.isEmpty)
+              pw.Center(
+                child: pw.Padding(
+                  padding: const pw.EdgeInsets.all(20),
+                  child: pw.Text(
+                    'Tidak ada transaksi di bulan ini.',
+                    style: const pw.TextStyle(color: PdfColors.grey),
+                  ),
+                ),
+              ),
+          ];
+        },
+        footer: (pw.Context context) {
+          return pw.Row(
+            mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+            children: [
+              pw.Text('about:blank', style: const pw.TextStyle(fontSize: 8)),
+              pw.Text(
+                '${context.pageNumber}/${context.pagesCount}',
+                style: const pw.TextStyle(fontSize: 8),
+              ),
+            ],
+          );
+        },
+      ),
+    );
+
+    await Printing.layoutPdf(
+      onLayout: (PdfPageFormat format) async => pdf.save(),
+      name:
+          'Laporan_Finansialin_${_getMonthName(_reportMonth)}_$_reportYear.pdf',
+    );
+  }
+
+  Future<void> _exportExcel() async {
+    final rData = _getReportData();
+    final double inc = rData['income'];
+    final double exp = rData['expense'];
+    final double net = inc - exp;
+
+    final filteredTx = _transactions.where((t) {
+      if (t['date'] == null) return false;
+      final d = DateTime.parse(t['date']);
+      return d.month == _reportMonth && d.year == _reportYear;
+    }).toList();
+
+    filteredTx.sort((a, b) {
+      final dateA = DateTime.parse(
+        a['date'] ?? DateTime.now().toIso8601String(),
+      );
+      final dateB = DateTime.parse(
+        b['date'] ?? DateTime.now().toIso8601String(),
+      );
+      return dateB.compareTo(dateA);
+    });
+
+    var excel = excel_pkg.Excel.createExcel();
+    excel_pkg.Sheet sheetObject = excel['Sheet1'];
+    excel.rename('Sheet1', 'Laporan Finansialin');
+
+    sheetObject.appendRow([
+      excel_pkg.TextCellValue(
+        'Laporan Keuangan: ${_getMonthName(_reportMonth)} $_reportYear',
+      ),
+    ]);
+    sheetObject.appendRow([excel_pkg.TextCellValue('')]);
+
+    sheetObject.appendRow([excel_pkg.TextCellValue('RINGKASAN')]);
+    sheetObject.appendRow([
+      excel_pkg.TextCellValue('Total Pemasukan'),
+      excel_pkg.TextCellValue(_formatCurrency(inc)),
+    ]);
+    sheetObject.appendRow([
+      excel_pkg.TextCellValue('Total Pengeluaran'),
+      excel_pkg.TextCellValue(_formatCurrency(exp)),
+    ]);
+    sheetObject.appendRow([
+      excel_pkg.TextCellValue('Net Savings'),
+      excel_pkg.TextCellValue(_formatCurrency(net)),
+    ]);
+
+    sheetObject.appendRow([excel_pkg.TextCellValue('')]);
+    sheetObject.appendRow([excel_pkg.TextCellValue('DETAIL TRANSAKSI')]);
+    sheetObject.appendRow([
+      excel_pkg.TextCellValue('Tanggal'),
+      excel_pkg.TextCellValue('Deskripsi'),
+      excel_pkg.TextCellValue('Kategori'),
+      excel_pkg.TextCellValue('Tipe'),
+      excel_pkg.TextCellValue('Jumlah'),
+    ]);
+
+    for (var t in filteredTx) {
+      final dateStr = t['date'] != null
+          ? DateFormat('dd/MM/yyyy').format(DateTime.parse(t['date']))
+          : '-';
+      int idCat = _parseInt(t['idCategory']);
+      String catName = _categoryMap[idCat] ?? 'Lainnya';
+      String desc = t['description']?.toString() ?? '';
+      String type = t['type'] == 'income' ? 'Pemasukan' : 'Pengeluaran';
+      double amt = _parseDouble(t['amount']);
+
+      sheetObject.appendRow([
+        excel_pkg.TextCellValue(dateStr),
+        excel_pkg.TextCellValue(desc),
+        excel_pkg.TextCellValue(catName),
+        excel_pkg.TextCellValue(type),
+        excel_pkg.DoubleCellValue(amt),
+      ]);
+    }
+
+    final dir = await getApplicationDocumentsDirectory();
+    final file = File(
+      '${dir.path}/Laporan_Finansialin_${_getMonthName(_reportMonth)}_$_reportYear.xlsx',
+    );
+
+    List<int>? fileBytes = excel.save();
+    if (fileBytes != null) {
+      await file.writeAsBytes(fileBytes);
+      await Share.shareXFiles([
+        XFile(file.path),
+      ], text: 'Laporan Keuangan ${_getMonthName(_reportMonth)} $_reportYear');
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -360,6 +713,7 @@ class _AnalisisPageState extends State<AnalisisPage> {
               value: _transactions.length.toString(),
               iconColor: const Color(0xFF5A67D8),
               iconBgColor: const Color(0xFFEBEFFF),
+              icon: Icons.account_balance_wallet,
             ),
             _buildStatCard(
               title: 'Tingkat Tabungan',
@@ -367,6 +721,7 @@ class _AnalisisPageState extends State<AnalisisPage> {
                   '${_totalIncome > 0 ? ((_totalSavings / _totalIncome) * 100).toStringAsFixed(0) : 0}%',
               iconColor: const Color(0xFFE53E3E),
               iconBgColor: const Color(0xFFFDE8E8),
+              icon: Icons.savings,
             ),
             _buildStatCard(
               title: 'Rata-rata Pemasukan',
@@ -375,6 +730,7 @@ class _AnalisisPageState extends State<AnalisisPage> {
               ),
               iconColor: const Color(0xFF5A67D8),
               iconBgColor: const Color(0xFFEBEFFF),
+              icon: Icons.trending_up,
             ),
             _buildStatCard(
               title: 'Rata-rata Pengeluaran',
@@ -383,18 +739,21 @@ class _AnalisisPageState extends State<AnalisisPage> {
               ),
               iconColor: const Color(0xFFE53E3E),
               iconBgColor: const Color(0xFFFDE8E8),
+              icon: Icons.trending_down,
             ),
             _buildStatCard(
               title: 'Pemasukan Tertinggi',
               value: _formatShortCurrency(maxInc),
               iconColor: const Color(0xFF5A67D8),
               iconBgColor: const Color(0xFFEBEFFF),
+              icon: Icons.keyboard_double_arrow_up,
             ),
             _buildStatCard(
               title: 'Pengeluaran Tertinggi',
               value: _formatShortCurrency(maxExp),
               iconColor: const Color(0xFFE53E3E),
               iconBgColor: const Color(0xFFFDE8E8),
+              icon: Icons.keyboard_double_arrow_down,
             ),
           ],
         ),
@@ -506,7 +865,9 @@ class _AnalisisPageState extends State<AnalisisPage> {
                                         width: 18,
                                         height: max((spent / maxVal) * 120, 4),
                                         decoration: BoxDecoration(
-                                          color: const Color(0xFFFFC107),
+                                          color: spent > amount
+                                              ? const Color(0xFF333333)
+                                              : const Color(0xFFFFC107),
                                           borderRadius: BorderRadius.circular(
                                             4,
                                           ),
@@ -758,6 +1119,54 @@ class _AnalisisPageState extends State<AnalisisPage> {
             ),
           ],
         ),
+        const SizedBox(height: 16),
+        Row(
+          children: [
+            Expanded(
+              child: ElevatedButton.icon(
+                onPressed: _exportPdf,
+                icon: const Icon(
+                  Icons.picture_as_pdf,
+                  color: Colors.white,
+                  size: 16,
+                ),
+                label: const Text(
+                  'Export PDF',
+                  style: TextStyle(color: Colors.white, fontSize: 12),
+                ),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFFD32F2F),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                ),
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: ElevatedButton.icon(
+                onPressed: _exportExcel,
+                icon: const Icon(
+                  Icons.table_chart,
+                  color: Colors.white,
+                  size: 16,
+                ),
+                label: const Text(
+                  'Export Excel',
+                  style: TextStyle(color: Colors.white, fontSize: 12),
+                ),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF388E3C),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                ),
+              ),
+            ),
+          ],
+        ),
         const SizedBox(height: 24),
 
         _buildPanel(
@@ -824,6 +1233,7 @@ class _AnalisisPageState extends State<AnalisisPage> {
                   children: bdgs.map((b) {
                     final usage = _getBudgetUsage(b);
                     final pct = usage['percent'] as double;
+                    final isOverBudget = pct > 100;
                     return Padding(
                       padding: const EdgeInsets.only(bottom: 16),
                       child: Column(
@@ -865,8 +1275,8 @@ class _AnalisisPageState extends State<AnalisisPage> {
                               widthFactor: (pct / 100).clamp(0.0, 1.0),
                               child: Container(
                                 decoration: BoxDecoration(
-                                  color: pct > 100
-                                      ? const Color(0xFFE53E3E)
+                                  color: isOverBudget
+                                      ? const Color(0xFFEF4444)
                                       : const Color(0xFFFFC107),
                                   borderRadius: BorderRadius.circular(4),
                                 ),
@@ -874,13 +1284,6 @@ class _AnalisisPageState extends State<AnalisisPage> {
                             ),
                           ),
                           const SizedBox(height: 4),
-                          Text(
-                            '${_formatShortCurrency(usage['used'])} / ${_formatShortCurrency(usage['total'])}',
-                            style: TextStyle(
-                              fontSize: 10,
-                              color: Colors.grey.shade500,
-                            ),
-                          ),
                         ],
                       ),
                     );
@@ -903,7 +1306,7 @@ class _AnalisisPageState extends State<AnalisisPage> {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.grey.shade200),
+        border: Border.all(color: Colors.grey[200]!),
       ),
       child: DropdownButtonHideUnderline(
         child: DropdownButton<T>(
@@ -952,6 +1355,7 @@ class _AnalisisPageState extends State<AnalisisPage> {
     required String value,
     required Color iconColor,
     required Color iconBgColor,
+    required IconData icon,
   }) {
     return Container(
       padding: const EdgeInsets.all(12),
@@ -975,11 +1379,7 @@ class _AnalisisPageState extends State<AnalisisPage> {
               color: iconBgColor,
               borderRadius: BorderRadius.circular(8),
             ),
-            child: Icon(
-              Icons.account_balance_wallet,
-              color: iconColor,
-              size: 18,
-            ),
+            child: Icon(icon, color: iconColor, size: 18),
           ),
           const SizedBox(width: 10),
           Expanded(
