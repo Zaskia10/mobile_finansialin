@@ -112,7 +112,7 @@ class _ScanReceiptPageState extends State<ScanReceiptPage> {
         ),
       });
 
-      final response = await _dio.post('/insights/receipt-ocr', data: formData);
+      final response = await _dio.post('/ai/receipt-ocr', data: formData);
 
       if (response.statusCode == 200 && mounted) {
         // Berhasil OCR, kembalikan data ke halaman transaksi

@@ -63,8 +63,8 @@ class CustomNavBar extends StatelessWidget {
                   Expanded(child: _buildCenterItem()),
                   Expanded(
                     child: _buildNormalItem(
-                      icon: Icons.account_balance_wallet_outlined,
-                      activeIcon: Icons.account_balance_wallet,
+                      icon: Icons.receipt_long_outlined,
+                      activeIcon: Icons.receipt_long,
                       label: "Riwayat",
                       index: 3,
                     ),
