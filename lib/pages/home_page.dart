@@ -30,11 +30,11 @@ class _HomePageState extends State<HomePage> {
   List<dynamic> transactions = [];
   List<dynamic> resources = [];
   List<dynamic> goals = [];
+  Map<int, String> categoryMap = {};
   dynamic selectedResourceHome;
 
   List<FlSpot> chartData = [];
   String percentageText = "0%";
-  bool _isLoading = true;
 
   @override
   void initState() {
@@ -63,8 +63,8 @@ class _HomePageState extends State<HomePage> {
   }
 
   Future<void> _fetchAllData() async {
-    if (mounted) setState(() => _isLoading = true);
     await Future.wait([
+      fetchCategories(),
       fetchResourcesHome(),
       fetchTotalBalance(),
       fetchTransactionsMonth(),
@@ -73,7 +73,23 @@ class _HomePageState extends State<HomePage> {
       fetchDashboardSummary(),
       _calculateMonthPercentage(),
     ]);
-    if (mounted) setState(() => _isLoading = false);
+  }
+
+  Future<void> fetchCategories() async {
+    try {
+      final res = await dio.get("/categories");
+      if (res.data != null) {
+        List<dynamic> catData = res.data is List
+            ? res.data
+            : (res.data['data'] ?? []);
+        Map<int, String> tempMap = {};
+        for (var c in catData) {
+          int id = int.tryParse(c['id'].toString()) ?? 0;
+          tempMap[id] = c['name']?.toString() ?? 'Lainnya';
+        }
+        if (mounted) setState(() => categoryMap = tempMap);
+      }
+    } catch (e) {}
   }
 
   Future<void> _calculateMonthPercentage() async {
@@ -220,7 +236,20 @@ class _HomePageState extends State<HomePage> {
         final List<dynamic> fallbackList = resFallback.data is Map
             ? (resFallback.data['data'] ?? [])
             : resFallback.data;
-        if (mounted) setState(() => goals = fallbackList);
+
+        List<dynamic> enrichedGoals = [];
+        for (var b in fallbackList) {
+          int id = int.tryParse(b['id'].toString()) ?? 0;
+          try {
+            final usageRes = await dio.get("/budgets/$id/usage");
+            b['usage'] = usageRes.data;
+          } catch (_) {
+            b['usage'] = {'used': 0.0, 'total': b['amount'], 'percent': 0.0};
+          }
+          enrichedGoals.add(b);
+        }
+
+        if (mounted) setState(() => goals = enrichedGoals);
       } catch (eFallback) {}
     }
   }
@@ -284,6 +313,36 @@ class _HomePageState extends State<HomePage> {
     }
   }
 
+  IconData _getIconForCategory(String categoryName) {
+    String lower = categoryName.toLowerCase();
+    if (lower.contains('food') || lower.contains('makan'))
+      return Icons.restaurant;
+    if (lower.contains('transport') ||
+        lower.contains('mobil') ||
+        lower.contains('car'))
+      return Icons.directions_car;
+    if (lower.contains('shop') || lower.contains('belanja'))
+      return Icons.shopping_bag;
+    if (lower.contains('health') ||
+        lower.contains('sehat') ||
+        lower.contains('medis'))
+      return Icons.medical_services;
+    if (lower.contains('edu') ||
+        lower.contains('pendidikan') ||
+        lower.contains('sekolah'))
+      return Icons.school;
+    if (lower.contains('ent') ||
+        lower.contains('hibur') ||
+        lower.contains('main'))
+      return Icons.sports_esports;
+    if (lower.contains('bill') ||
+        lower.contains('tagihan') ||
+        lower.contains('listrik'))
+      return Icons.receipt_long;
+    if (lower.contains('home') || lower.contains('rumah')) return Icons.home;
+    return Icons.account_balance_wallet;
+  }
+
   Widget _buildHomeContent() {
     return SafeArea(
       child: RefreshIndicator(
@@ -296,22 +355,15 @@ class _HomePageState extends State<HomePage> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               _buildBalanceCard(),
-              if (!_isLoading) ...[
-                const SizedBox(height: 20),
-                if (income != 0 || expense != 0) _buildIncomeExpense(),
-                if (income != 0 || expense != 0) const SizedBox(height: 24),
-                _buildMyBudgets(),
-                const SizedBox(height: 24),
-                _buildTracking(),
-                const SizedBox(height: 24),
-                _buildRecentTransactions(),
-                const SizedBox(height: 40),
-              ] else ...[
-                const SizedBox(height: 40),
-                const Center(
-                  child: CircularProgressIndicator(color: Color(0xFFFFC107)),
-                ),
-              ],
+              const SizedBox(height: 20),
+              if (income != 0 || expense != 0) _buildIncomeExpense(),
+              if (income != 0 || expense != 0) const SizedBox(height: 24),
+              _buildMyBudgets(),
+              const SizedBox(height: 24),
+              _buildTracking(),
+              const SizedBox(height: 24),
+              _buildRecentTransactions(),
+              const SizedBox(height: 40),
             ],
           ),
         ),
@@ -708,16 +760,32 @@ class _HomePageState extends State<HomePage> {
             ),
           ...goals.take(3).map((goal) {
             final double target =
-                double.tryParse(goal['amount']?.toString() ?? '0') ?? 0.0;
+                double.tryParse(
+                  goal['amount']?.toString() ??
+                      goal['totalBudget']?.toString() ??
+                      '0',
+                ) ??
+                0.0;
             final double current =
-                double.tryParse(goal['used']?.toString() ?? '0') ?? 0.0;
+                double.tryParse(
+                  goal['used']?.toString() ??
+                      goal['usage']?['used']?.toString() ??
+                      goal['totalSpent']?.toString() ??
+                      '0',
+                ) ??
+                0.0;
             final double percent = target > 0 ? (current / target) : 0.0;
-            String title = goal['category']?['name'] ?? 'Goal';
-            IconData iconToUse = Icons.flight_takeoff;
-            if (title.toLowerCase().contains('car') ||
-                title.toLowerCase().contains('mobil')) {
-              iconToUse = Icons.directions_car;
-            }
+
+            int idCat =
+                int.tryParse(goal['idCategory']?.toString() ?? '0') ?? 0;
+            String title =
+                goal['category']?['name'] ??
+                goal['categoryName'] ??
+                categoryMap[idCat] ??
+                goal['name'] ??
+                'General';
+
+            IconData iconToUse = _getIconForCategory(title);
 
             return Padding(
               padding: const EdgeInsets.only(bottom: 24),
@@ -890,11 +958,19 @@ class _HomePageState extends State<HomePage> {
             final double amt =
                 double.tryParse(item['amount']?.toString() ?? '0') ?? 0.0;
             final bool isInc = item['type'] == 'income';
+
+            int idCat =
+                int.tryParse(item['idCategory']?.toString() ?? '0') ?? 0;
+            String catName = categoryMap[idCat] ?? 'Lainnya';
+            String desc = item['description']?.toString() ?? '';
+            String displayTitle = desc.isNotEmpty ? desc : catName;
+
             return _buildTransactionItem(
-              name: item['description'] ?? '-',
+              name: displayTitle,
               date: formatDate(item['date']),
               amount: "${isInc ? '+' : '-'}${formatCurrency(amt)}",
               isIncome: isInc,
+              categoryName: catName,
             );
           }).toList(),
         ],
@@ -907,6 +983,7 @@ class _HomePageState extends State<HomePage> {
     required String date,
     required String amount,
     required bool isIncome,
+    required String categoryName,
   }) {
     return Container(
       margin: const EdgeInsets.only(bottom: 16),
