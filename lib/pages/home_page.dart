@@ -9,8 +9,9 @@ import 'transaction_pemasukan.dart';
 import 'transaction_pengeluaran.dart';
 import 'profile_page.dart';
 import 'chatbot_page.dart';
-import 'add_goal_page.dart';
+import 'add_my_budgets.dart';
 import 'riwayat_page.dart';
+import 'analisis_page.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({Key? key}) : super(key: key);
@@ -291,7 +292,7 @@ class _HomePageState extends State<HomePage> {
       case 0:
         return _buildHomeContent();
       case 1:
-        return _buildPlaceholderPage('Analisis');
+        return const AnalisisPage();
       case 2:
         return const AIAssistantScreen();
       case 3:
@@ -594,9 +595,7 @@ class _HomePageState extends State<HomePage> {
                 onTap: () async {
                   final result = await Navigator.push(
                     context,
-                    MaterialPageRoute(
-                      builder: (context) => const AddGoalPage(),
-                    ),
+                    MaterialPageRoute(builder: (context) => const AddBudgets()),
                   );
                   if (result == true) {
                     _fetchAllData();
@@ -612,7 +611,7 @@ class _HomePageState extends State<HomePage> {
                     borderRadius: BorderRadius.circular(10),
                   ),
                   child: const Text(
-                    "Add Goals",
+                    "Add Budget",
                     style: TextStyle(
                       fontSize: 10,
                       fontWeight: FontWeight.bold,

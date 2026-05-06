@@ -5,14 +5,14 @@ import 'package:flutter_dotenv/flutter_dotenv.dart';
 import '../services/api_service.dart';
 import '../services/auth_service.dart';
 
-class AddGoalPage extends StatefulWidget {
-  const AddGoalPage({Key? key}) : super(key: key);
+class AddBudgets extends StatefulWidget {
+  const AddBudgets({Key? key}) : super(key: key);
 
   @override
-  State<AddGoalPage> createState() => _AddGoalPageState();
+  State<AddBudgets> createState() => _AddMyBudgets();
 }
 
-class _AddGoalPageState extends State<AddGoalPage> {
+class _AddMyBudgets extends State<AddBudgets> {
   final _formKey = GlobalKey<FormState>();
   final TextEditingController _amountController = TextEditingController();
 
