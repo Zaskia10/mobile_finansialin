@@ -146,9 +146,7 @@ class _HomePageState extends State<HomePage> {
           }
         });
       }
-    } catch (e) {
-      if (mounted) setState(() => resources = []);
-    }
+    } catch (e) {}
   }
 
   Future<void> fetchTotalBalance() async {
@@ -163,9 +161,7 @@ class _HomePageState extends State<HomePage> {
               0.0;
         });
       }
-    } catch (e) {
-      if (mounted) setState(() => _totalBalance = 0.0);
-    }
+    } catch (e) {}
   }
 
   Future<void> fetchTransactionsMonth() async {
@@ -194,14 +190,7 @@ class _HomePageState extends State<HomePage> {
           expense = tempExpense;
         });
       }
-    } catch (e) {
-      if (mounted) {
-        setState(() {
-          income = 0;
-          expense = 0;
-        });
-      }
-    }
+    } catch (e) {}
   }
 
   Future<void> fetchTransactions() async {
@@ -215,9 +204,7 @@ class _HomePageState extends State<HomePage> {
           transactions = dataList;
         });
       }
-    } catch (e) {
-      if (mounted) setState(() => transactions = []);
-    }
+    } catch (e) {}
   }
 
   Future<void> fetchGoals() async {
@@ -234,9 +221,7 @@ class _HomePageState extends State<HomePage> {
             ? (resFallback.data['data'] ?? [])
             : resFallback.data;
         if (mounted) setState(() => goals = fallbackList);
-      } catch (eFallback) {
-        if (mounted) setState(() => goals = []);
-      }
+      } catch (eFallback) {}
     }
   }
 
@@ -259,9 +244,7 @@ class _HomePageState extends State<HomePage> {
           }
         });
       }
-    } catch (e) {
-      if (mounted) setState(() => chartData = []);
-    }
+    } catch (e) {}
   }
 
   Future<void> _navigateToTransaction({required bool isIncome}) async {
@@ -301,47 +284,7 @@ class _HomePageState extends State<HomePage> {
     }
   }
 
-  Widget _buildSkeletonBox({
-    required double height,
-    double width = double.infinity,
-  }) {
-    return Container(
-      height: height,
-      width: width,
-      decoration: BoxDecoration(
-        color: Colors.grey[300],
-        borderRadius: BorderRadius.circular(16),
-      ),
-    );
-  }
-
-  Widget _buildSkeletonView() {
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(20.0),
-      child: Column(
-        children: [
-          _buildSkeletonBox(height: 200),
-          const SizedBox(height: 20),
-          Row(
-            children: [
-              Expanded(child: _buildSkeletonBox(height: 80)),
-              const SizedBox(width: 12),
-              Expanded(child: _buildSkeletonBox(height: 80)),
-            ],
-          ),
-          const SizedBox(height: 24),
-          _buildSkeletonBox(height: 220),
-          const SizedBox(height: 24),
-          _buildSkeletonBox(height: 200),
-        ],
-      ),
-    );
-  }
-
   Widget _buildHomeContent() {
-    if (_isLoading) {
-      return SafeArea(child: _buildSkeletonView());
-    }
     return SafeArea(
       child: RefreshIndicator(
         onRefresh: _fetchAllData,
@@ -353,15 +296,22 @@ class _HomePageState extends State<HomePage> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               _buildBalanceCard(),
-              const SizedBox(height: 20),
-              if (income != 0 || expense != 0) _buildIncomeExpense(),
-              if (income != 0 || expense != 0) const SizedBox(height: 24),
-              _buildMyGoals(),
-              const SizedBox(height: 24),
-              _buildTracking(),
-              const SizedBox(height: 24),
-              _buildRecentTransactions(),
-              const SizedBox(height: 40),
+              if (!_isLoading) ...[
+                const SizedBox(height: 20),
+                if (income != 0 || expense != 0) _buildIncomeExpense(),
+                if (income != 0 || expense != 0) const SizedBox(height: 24),
+                _buildMyBudgets(),
+                const SizedBox(height: 24),
+                _buildTracking(),
+                const SizedBox(height: 24),
+                _buildRecentTransactions(),
+                const SizedBox(height: 40),
+              ] else ...[
+                const SizedBox(height: 40),
+                const Center(
+                  child: CircularProgressIndicator(color: Color(0xFFFFC107)),
+                ),
+              ],
             ],
           ),
         ),
@@ -619,7 +569,7 @@ class _HomePageState extends State<HomePage> {
                 "Pemasukan",
                 formatCurrency(income),
                 const Color(0xFF3B82F6),
-                Icons.savings,
+                Icons.arrow_downward,
               ),
             ),
           ),
@@ -632,7 +582,7 @@ class _HomePageState extends State<HomePage> {
                 "Pengeluaran",
                 formatCurrency(expense),
                 const Color(0xFFEF4444),
-                Icons.money_off,
+                Icons.arrow_upward,
               ),
             ),
           ),
@@ -696,7 +646,7 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
-  Widget _buildMyGoals() {
+  Widget _buildMyBudgets() {
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(20),
@@ -718,7 +668,7 @@ class _HomePageState extends State<HomePage> {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               const Text(
-                "My Goals",
+                "My Budgets",
                 style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
               ),
               GestureDetector(
@@ -739,7 +689,7 @@ class _HomePageState extends State<HomePage> {
                     borderRadius: BorderRadius.circular(8),
                   ),
                   child: const Text(
-                    "Add Goals",
+                    "Add Budget",
                     style: TextStyle(
                       fontSize: 10,
                       fontWeight: FontWeight.bold,
@@ -753,7 +703,7 @@ class _HomePageState extends State<HomePage> {
           const SizedBox(height: 24),
           if (goals.isEmpty)
             const Text(
-              "Belum ada goals.",
+              "Belum ada budgets.",
               style: TextStyle(color: Colors.grey, fontSize: 12),
             ),
           ...goals.take(3).map((goal) {
