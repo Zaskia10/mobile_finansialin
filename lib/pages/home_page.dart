@@ -588,7 +588,7 @@ class _HomePageState extends State<HomePage> {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               const Text(
-                "My Goals",
+                "My Budgets",
                 style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
               ),
               GestureDetector(
