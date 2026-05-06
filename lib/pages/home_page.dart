@@ -35,6 +35,7 @@ class _HomePageState extends State<HomePage> {
 
   List<FlSpot> chartData = [];
   String percentageText = "0%";
+  bool _isLoading = true;
 
   @override
   void initState() {
@@ -63,6 +64,10 @@ class _HomePageState extends State<HomePage> {
   }
 
   Future<void> _fetchAllData() async {
+    if (goals.isEmpty && transactions.isEmpty) {
+      if (mounted) setState(() => _isLoading = true);
+    }
+
     await Future.wait([
       fetchCategories(),
       fetchResourcesHome(),
@@ -73,6 +78,8 @@ class _HomePageState extends State<HomePage> {
       fetchDashboardSummary(),
       _calculateMonthPercentage(),
     ]);
+
+    if (mounted) setState(() => _isLoading = false);
   }
 
   Future<void> fetchCategories() async {
@@ -242,7 +249,9 @@ class _HomePageState extends State<HomePage> {
           int id = int.tryParse(b['id'].toString()) ?? 0;
           try {
             final usageRes = await dio.get("/budgets/$id/usage");
-            b['usage'] = usageRes.data;
+            b['usage'] = usageRes.data is Map
+                ? usageRes.data
+                : (usageRes.data['data'] ?? {});
           } catch (_) {
             b['usage'] = {'used': 0.0, 'total': b['amount'], 'percent': 0.0};
           }
@@ -298,9 +307,9 @@ class _HomePageState extends State<HomePage> {
   String formatCurrency(num value) {
     return NumberFormat.currency(
       locale: 'id_ID',
-      symbol: 'Rp. ',
+      symbol: 'Rp ',
       decimalDigits: 0,
-    ).format(value);
+    ).format(value).trim();
   }
 
   String formatDate(dynamic date) {
@@ -355,15 +364,17 @@ class _HomePageState extends State<HomePage> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               _buildBalanceCard(),
-              const SizedBox(height: 20),
-              if (income != 0 || expense != 0) _buildIncomeExpense(),
-              if (income != 0 || expense != 0) const SizedBox(height: 24),
-              _buildMyBudgets(),
-              const SizedBox(height: 24),
-              _buildTracking(),
-              const SizedBox(height: 24),
-              _buildRecentTransactions(),
-              const SizedBox(height: 40),
+              if (!_isLoading) ...[
+                const SizedBox(height: 20),
+                if (income != 0 || expense != 0) _buildIncomeExpense(),
+                if (income != 0 || expense != 0) const SizedBox(height: 24),
+                _buildMyBudgets(),
+                const SizedBox(height: 24),
+                _buildTracking(),
+                const SizedBox(height: 24),
+                _buildRecentTransactions(),
+                const SizedBox(height: 40),
+              ],
             ],
           ),
         ),
@@ -733,17 +744,17 @@ class _HomePageState extends State<HomePage> {
                 },
                 child: Container(
                   padding: const EdgeInsets.symmetric(
-                    horizontal: 12,
+                    horizontal: 16,
                     vertical: 8,
                   ),
                   decoration: BoxDecoration(
                     color: const Color(0xFFFFC107),
-                    borderRadius: BorderRadius.circular(8),
+                    borderRadius: BorderRadius.circular(20),
                   ),
                   child: const Text(
                     "Add Budget",
                     style: TextStyle(
-                      fontSize: 10,
+                      fontSize: 12,
                       fontWeight: FontWeight.bold,
                       color: Colors.black,
                     ),
@@ -763,17 +774,21 @@ class _HomePageState extends State<HomePage> {
                 double.tryParse(
                   goal['amount']?.toString() ??
                       goal['totalBudget']?.toString() ??
+                      goal['total']?.toString() ??
                       '0',
                 ) ??
                 0.0;
+
+            final usage = goal['usage'] ?? {};
             final double current =
                 double.tryParse(
                   goal['used']?.toString() ??
-                      goal['usage']?['used']?.toString() ??
+                      usage['used']?.toString() ??
                       goal['totalSpent']?.toString() ??
                       '0',
                 ) ??
                 0.0;
+
             final double percent = target > 0 ? (current / target) : 0.0;
 
             int idCat =
@@ -814,7 +829,14 @@ class _HomePageState extends State<HomePage> {
       children: [
         Row(
           children: [
-            Icon(icon, size: 30, color: Colors.black),
+            Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: const Color(0xFFF5F5F5),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Icon(icon, size: 24, color: Colors.black87),
+            ),
             const SizedBox(width: 16),
             Expanded(
               child: Column(
@@ -825,13 +847,14 @@ class _HomePageState extends State<HomePage> {
                     style: const TextStyle(
                       fontSize: 14,
                       fontWeight: FontWeight.bold,
+                      color: Colors.black87,
                     ),
                   ),
                   const SizedBox(height: 4),
                   Text(
                     "${formatCurrency(current)} / ${formatCurrency(target)}",
                     style: const TextStyle(
-                      fontSize: 11,
+                      fontSize: 12,
                       color: Colors.grey,
                       fontWeight: FontWeight.w500,
                     ),
@@ -842,7 +865,7 @@ class _HomePageState extends State<HomePage> {
             Text(
               "${(percent * 100).toInt()}%",
               style: const TextStyle(
-                fontSize: 20,
+                fontSize: 16,
                 fontWeight: FontWeight.bold,
                 color: Color(0xFFFFC107),
               ),
@@ -850,29 +873,25 @@ class _HomePageState extends State<HomePage> {
           ],
         ),
         const SizedBox(height: 12),
-        _buildSegmentedProgress(percent),
-      ],
-    );
-  }
-
-  Widget _buildSegmentedProgress(double percent) {
-    const totalBars = 10;
-    int filledBars = (percent * totalBars).round();
-    return Row(
-      children: List.generate(totalBars, (index) {
-        return Expanded(
-          child: Container(
-            margin: const EdgeInsets.symmetric(horizontal: 3),
-            height: 8,
-            decoration: BoxDecoration(
-              color: index < filledBars
-                  ? const Color(0xFFE4C640)
-                  : Colors.black,
-              borderRadius: BorderRadius.circular(10),
+        Container(
+          height: 8,
+          width: double.infinity,
+          decoration: BoxDecoration(
+            color: const Color(0xFFF5F5F5),
+            borderRadius: BorderRadius.circular(4),
+          ),
+          child: FractionallySizedBox(
+            alignment: Alignment.centerLeft,
+            widthFactor: percent.clamp(0.0, 1.0),
+            child: Container(
+              decoration: BoxDecoration(
+                color: const Color(0xFFFFC107),
+                borderRadius: BorderRadius.circular(4),
+              ),
             ),
           ),
-        );
-      }),
+        ),
+      ],
     );
   }
 
