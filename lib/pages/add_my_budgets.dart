@@ -9,10 +9,10 @@ class AddBudgets extends StatefulWidget {
   const AddBudgets({Key? key}) : super(key: key);
 
   @override
-  State<AddBudgets> createState() => _AddMyBudgets();
+  State<AddBudgets> createState() => _As();
 }
 
-class _AddMyBudgets extends State<AddBudgets> {
+class _As extends State<AddBudgets> {
   final _formKey = GlobalKey<FormState>();
   final TextEditingController _amountController = TextEditingController();
 

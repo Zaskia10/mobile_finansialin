@@ -30,6 +30,7 @@ class _HomePageState extends State<HomePage> {
   List<dynamic> transactions = [];
   List<dynamic> resources = [];
   List<dynamic> goals = [];
+  Map<int, String> categoryMap = {};
   dynamic selectedResourceHome;
 
   List<FlSpot> chartData = [];
@@ -63,8 +64,12 @@ class _HomePageState extends State<HomePage> {
   }
 
   Future<void> _fetchAllData() async {
-    if (mounted) setState(() => _isLoading = true);
+    if (goals.isEmpty && transactions.isEmpty) {
+      if (mounted) setState(() => _isLoading = true);
+    }
+
     await Future.wait([
+      fetchCategories(),
       fetchResourcesHome(),
       fetchTotalBalance(),
       fetchTransactionsMonth(),
@@ -73,7 +78,25 @@ class _HomePageState extends State<HomePage> {
       fetchDashboardSummary(),
       _calculateMonthPercentage(),
     ]);
+
     if (mounted) setState(() => _isLoading = false);
+  }
+
+  Future<void> fetchCategories() async {
+    try {
+      final res = await dio.get("/categories");
+      if (res.data != null) {
+        List<dynamic> catData = res.data is List
+            ? res.data
+            : (res.data['data'] ?? []);
+        Map<int, String> tempMap = {};
+        for (var c in catData) {
+          int id = int.tryParse(c['id'].toString()) ?? 0;
+          tempMap[id] = c['name']?.toString() ?? 'Lainnya';
+        }
+        if (mounted) setState(() => categoryMap = tempMap);
+      }
+    } catch (e) {}
   }
 
   Future<void> _calculateMonthPercentage() async {
@@ -146,9 +169,7 @@ class _HomePageState extends State<HomePage> {
           }
         });
       }
-    } catch (e) {
-      if (mounted) setState(() => resources = []);
-    }
+    } catch (e) {}
   }
 
   Future<void> fetchTotalBalance() async {
@@ -163,9 +184,7 @@ class _HomePageState extends State<HomePage> {
               0.0;
         });
       }
-    } catch (e) {
-      if (mounted) setState(() => _totalBalance = 0.0);
-    }
+    } catch (e) {}
   }
 
   Future<void> fetchTransactionsMonth() async {
@@ -194,14 +213,7 @@ class _HomePageState extends State<HomePage> {
           expense = tempExpense;
         });
       }
-    } catch (e) {
-      if (mounted) {
-        setState(() {
-          income = 0;
-          expense = 0;
-        });
-      }
-    }
+    } catch (e) {}
   }
 
   Future<void> fetchTransactions() async {
@@ -215,9 +227,7 @@ class _HomePageState extends State<HomePage> {
           transactions = dataList;
         });
       }
-    } catch (e) {
-      if (mounted) setState(() => transactions = []);
-    }
+    } catch (e) {}
   }
 
   Future<void> fetchGoals() async {
@@ -233,10 +243,23 @@ class _HomePageState extends State<HomePage> {
         final List<dynamic> fallbackList = resFallback.data is Map
             ? (resFallback.data['data'] ?? [])
             : resFallback.data;
-        if (mounted) setState(() => goals = fallbackList);
-      } catch (eFallback) {
-        if (mounted) setState(() => goals = []);
-      }
+
+        List<dynamic> enrichedGoals = [];
+        for (var b in fallbackList) {
+          int id = int.tryParse(b['id'].toString()) ?? 0;
+          try {
+            final usageRes = await dio.get("/budgets/$id/usage");
+            b['usage'] = usageRes.data is Map
+                ? usageRes.data
+                : (usageRes.data['data'] ?? {});
+          } catch (_) {
+            b['usage'] = {'used': 0.0, 'total': b['amount'], 'percent': 0.0};
+          }
+          enrichedGoals.add(b);
+        }
+
+        if (mounted) setState(() => goals = enrichedGoals);
+      } catch (eFallback) {}
     }
   }
 
@@ -259,9 +282,7 @@ class _HomePageState extends State<HomePage> {
           }
         });
       }
-    } catch (e) {
-      if (mounted) setState(() => chartData = []);
-    }
+    } catch (e) {}
   }
 
   Future<void> _navigateToTransaction({required bool isIncome}) async {
@@ -286,9 +307,9 @@ class _HomePageState extends State<HomePage> {
   String formatCurrency(num value) {
     return NumberFormat.currency(
       locale: 'id_ID',
-      symbol: 'Rp. ',
+      symbol: 'Rp ',
       decimalDigits: 0,
-    ).format(value);
+    ).format(value).trim();
   }
 
   String formatDate(dynamic date) {
@@ -301,47 +322,37 @@ class _HomePageState extends State<HomePage> {
     }
   }
 
-  Widget _buildSkeletonBox({
-    required double height,
-    double width = double.infinity,
-  }) {
-    return Container(
-      height: height,
-      width: width,
-      decoration: BoxDecoration(
-        color: Colors.grey[300],
-        borderRadius: BorderRadius.circular(16),
-      ),
-    );
-  }
-
-  Widget _buildSkeletonView() {
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(20.0),
-      child: Column(
-        children: [
-          _buildSkeletonBox(height: 200),
-          const SizedBox(height: 20),
-          Row(
-            children: [
-              Expanded(child: _buildSkeletonBox(height: 80)),
-              const SizedBox(width: 12),
-              Expanded(child: _buildSkeletonBox(height: 80)),
-            ],
-          ),
-          const SizedBox(height: 24),
-          _buildSkeletonBox(height: 220),
-          const SizedBox(height: 24),
-          _buildSkeletonBox(height: 200),
-        ],
-      ),
-    );
+  IconData _getIconForCategory(String categoryName) {
+    String lower = categoryName.toLowerCase();
+    if (lower.contains('food') || lower.contains('makan'))
+      return Icons.restaurant;
+    if (lower.contains('transport') ||
+        lower.contains('mobil') ||
+        lower.contains('car'))
+      return Icons.directions_car;
+    if (lower.contains('shop') || lower.contains('belanja'))
+      return Icons.shopping_bag;
+    if (lower.contains('health') ||
+        lower.contains('sehat') ||
+        lower.contains('medis'))
+      return Icons.medical_services;
+    if (lower.contains('edu') ||
+        lower.contains('pendidikan') ||
+        lower.contains('sekolah'))
+      return Icons.school;
+    if (lower.contains('ent') ||
+        lower.contains('hibur') ||
+        lower.contains('main'))
+      return Icons.sports_esports;
+    if (lower.contains('bill') ||
+        lower.contains('tagihan') ||
+        lower.contains('listrik'))
+      return Icons.receipt_long;
+    if (lower.contains('home') || lower.contains('rumah')) return Icons.home;
+    return Icons.account_balance_wallet;
   }
 
   Widget _buildHomeContent() {
-    if (_isLoading) {
-      return SafeArea(child: _buildSkeletonView());
-    }
     return SafeArea(
       child: RefreshIndicator(
         onRefresh: _fetchAllData,
@@ -353,15 +364,21 @@ class _HomePageState extends State<HomePage> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               _buildBalanceCard(),
-              const SizedBox(height: 20),
-              if (income != 0 || expense != 0) _buildIncomeExpense(),
-              if (income != 0 || expense != 0) const SizedBox(height: 24),
-              _buildMyGoals(),
-              const SizedBox(height: 24),
-              _buildTracking(),
-              const SizedBox(height: 24),
-              _buildRecentTransactions(),
-              const SizedBox(height: 40),
+              if (!_isLoading) ...[
+                const SizedBox(height: 20),
+                if (income != 0 || expense != 0) _buildIncomeExpense(),
+                if (income != 0 || expense != 0) const SizedBox(height: 24),
+                _buildMyBudgets(),
+                const SizedBox(height: 24),
+                if (chartData.isNotEmpty &&
+                    !chartData.every((spot) => spot.y == 0))
+                  _buildTracking(),
+                if (chartData.isNotEmpty &&
+                    !chartData.every((spot) => spot.y == 0))
+                  const SizedBox(height: 24),
+                if (transactions.isNotEmpty) _buildRecentTransactions(),
+                if (transactions.isNotEmpty) const SizedBox(height: 40),
+              ],
             ],
           ),
         ),
@@ -619,7 +636,7 @@ class _HomePageState extends State<HomePage> {
                 "Pemasukan",
                 formatCurrency(income),
                 const Color(0xFF3B82F6),
-                Icons.savings,
+                Icons.arrow_downward,
               ),
             ),
           ),
@@ -632,7 +649,7 @@ class _HomePageState extends State<HomePage> {
                 "Pengeluaran",
                 formatCurrency(expense),
                 const Color(0xFFEF4444),
-                Icons.money_off,
+                Icons.arrow_upward,
               ),
             ),
           ),
@@ -696,7 +713,7 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
-  Widget _buildMyGoals() {
+  Widget _buildMyBudgets() {
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(20),
@@ -718,7 +735,7 @@ class _HomePageState extends State<HomePage> {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               const Text(
-                "My Goals",
+                "My Budgets",
                 style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
               ),
               GestureDetector(
@@ -731,17 +748,17 @@ class _HomePageState extends State<HomePage> {
                 },
                 child: Container(
                   padding: const EdgeInsets.symmetric(
-                    horizontal: 12,
+                    horizontal: 16,
                     vertical: 8,
                   ),
                   decoration: BoxDecoration(
                     color: const Color(0xFFFFC107),
-                    borderRadius: BorderRadius.circular(8),
+                    borderRadius: BorderRadius.circular(20),
                   ),
                   child: const Text(
-                    "Add Goals",
+                    "Add Budget",
                     style: TextStyle(
-                      fontSize: 10,
+                      fontSize: 12,
                       fontWeight: FontWeight.bold,
                       color: Colors.black,
                     ),
@@ -753,21 +770,42 @@ class _HomePageState extends State<HomePage> {
           const SizedBox(height: 24),
           if (goals.isEmpty)
             const Text(
-              "Belum ada goals.",
+              "Belum ada budgets.",
               style: TextStyle(color: Colors.grey, fontSize: 12),
             ),
           ...goals.take(3).map((goal) {
             final double target =
-                double.tryParse(goal['amount']?.toString() ?? '0') ?? 0.0;
+                double.tryParse(
+                  goal['amount']?.toString() ??
+                      goal['totalBudget']?.toString() ??
+                      goal['total']?.toString() ??
+                      '0',
+                ) ??
+                0.0;
+
+            final usage = goal['usage'] ?? {};
             final double current =
-                double.tryParse(goal['used']?.toString() ?? '0') ?? 0.0;
+                double.tryParse(
+                  goal['used']?.toString() ??
+                      usage['used']?.toString() ??
+                      goal['totalSpent']?.toString() ??
+                      goal['spent']?.toString() ??
+                      '0',
+                ) ??
+                0.0;
+
             final double percent = target > 0 ? (current / target) : 0.0;
-            String title = goal['category']?['name'] ?? 'Goal';
-            IconData iconToUse = Icons.flight_takeoff;
-            if (title.toLowerCase().contains('car') ||
-                title.toLowerCase().contains('mobil')) {
-              iconToUse = Icons.directions_car;
-            }
+
+            int idCat =
+                int.tryParse(goal['idCategory']?.toString() ?? '0') ?? 0;
+            String title =
+                goal['category']?['name'] ??
+                goal['categoryName'] ??
+                categoryMap[idCat] ??
+                goal['name'] ??
+                'General';
+
+            IconData iconToUse = _getIconForCategory(title);
 
             return Padding(
               padding: const EdgeInsets.only(bottom: 24),
@@ -796,7 +834,14 @@ class _HomePageState extends State<HomePage> {
       children: [
         Row(
           children: [
-            Icon(icon, size: 30, color: Colors.black),
+            Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: const Color(0xFFF5F5F5),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Icon(icon, size: 24, color: Colors.black87),
+            ),
             const SizedBox(width: 16),
             Expanded(
               child: Column(
@@ -807,13 +852,14 @@ class _HomePageState extends State<HomePage> {
                     style: const TextStyle(
                       fontSize: 14,
                       fontWeight: FontWeight.bold,
+                      color: Colors.black87,
                     ),
                   ),
                   const SizedBox(height: 4),
                   Text(
                     "${formatCurrency(current)} / ${formatCurrency(target)}",
                     style: const TextStyle(
-                      fontSize: 11,
+                      fontSize: 12,
                       color: Colors.grey,
                       fontWeight: FontWeight.w500,
                     ),
@@ -824,7 +870,7 @@ class _HomePageState extends State<HomePage> {
             Text(
               "${(percent * 100).toInt()}%",
               style: const TextStyle(
-                fontSize: 20,
+                fontSize: 16,
                 fontWeight: FontWeight.bold,
                 color: Color(0xFFFFC107),
               ),
@@ -832,36 +878,29 @@ class _HomePageState extends State<HomePage> {
           ],
         ),
         const SizedBox(height: 12),
-        _buildSegmentedProgress(percent),
+        Container(
+          height: 8,
+          width: double.infinity,
+          decoration: BoxDecoration(
+            color: const Color(0xFFF5F5F5),
+            borderRadius: BorderRadius.circular(4),
+          ),
+          child: FractionallySizedBox(
+            alignment: Alignment.centerLeft,
+            widthFactor: percent.clamp(0.0, 1.0),
+            child: Container(
+              decoration: BoxDecoration(
+                color: const Color(0xFFFFC107),
+                borderRadius: BorderRadius.circular(4),
+              ),
+            ),
+          ),
+        ),
       ],
     );
   }
 
-  Widget _buildSegmentedProgress(double percent) {
-    const totalBars = 10;
-    int filledBars = (percent * totalBars).round();
-    return Row(
-      children: List.generate(totalBars, (index) {
-        return Expanded(
-          child: Container(
-            margin: const EdgeInsets.symmetric(horizontal: 3),
-            height: 8,
-            decoration: BoxDecoration(
-              color: index < filledBars
-                  ? const Color(0xFFE4C640)
-                  : Colors.black,
-              borderRadius: BorderRadius.circular(10),
-            ),
-          ),
-        );
-      }),
-    );
-  }
-
   Widget _buildTracking() {
-    if (chartData.isEmpty || chartData.every((spot) => spot.y == 0)) {
-      return const SizedBox.shrink();
-    }
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(20),
@@ -913,7 +952,6 @@ class _HomePageState extends State<HomePage> {
   }
 
   Widget _buildRecentTransactions() {
-    if (transactions.isEmpty) return const SizedBox.shrink();
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(20),
@@ -940,11 +978,19 @@ class _HomePageState extends State<HomePage> {
             final double amt =
                 double.tryParse(item['amount']?.toString() ?? '0') ?? 0.0;
             final bool isInc = item['type'] == 'income';
+
+            int idCat =
+                int.tryParse(item['idCategory']?.toString() ?? '0') ?? 0;
+            String catName = categoryMap[idCat] ?? 'Lainnya';
+            String desc = item['description']?.toString() ?? '';
+            String displayTitle = desc.isNotEmpty ? desc : catName;
+
             return _buildTransactionItem(
-              name: item['description'] ?? '-',
+              name: displayTitle,
               date: formatDate(item['date']),
               amount: "${isInc ? '+' : '-'}${formatCurrency(amt)}",
               isIncome: isInc,
+              categoryName: catName,
             );
           }).toList(),
         ],
@@ -957,6 +1003,7 @@ class _HomePageState extends State<HomePage> {
     required String date,
     required String amount,
     required bool isIncome,
+    required String categoryName,
   }) {
     return Container(
       margin: const EdgeInsets.only(bottom: 16),
