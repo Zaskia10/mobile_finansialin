@@ -370,10 +370,14 @@ class _HomePageState extends State<HomePage> {
                 if (income != 0 || expense != 0) const SizedBox(height: 24),
                 _buildMyBudgets(),
                 const SizedBox(height: 24),
-                _buildTracking(),
-                const SizedBox(height: 24),
-                _buildRecentTransactions(),
-                const SizedBox(height: 40),
+                if (chartData.isNotEmpty &&
+                    !chartData.every((spot) => spot.y == 0))
+                  _buildTracking(),
+                if (chartData.isNotEmpty &&
+                    !chartData.every((spot) => spot.y == 0))
+                  const SizedBox(height: 24),
+                if (transactions.isNotEmpty) _buildRecentTransactions(),
+                if (transactions.isNotEmpty) const SizedBox(height: 40),
               ],
             ],
           ),
@@ -785,6 +789,7 @@ class _HomePageState extends State<HomePage> {
                   goal['used']?.toString() ??
                       usage['used']?.toString() ??
                       goal['totalSpent']?.toString() ??
+                      goal['spent']?.toString() ??
                       '0',
                 ) ??
                 0.0;
@@ -896,9 +901,6 @@ class _HomePageState extends State<HomePage> {
   }
 
   Widget _buildTracking() {
-    if (chartData.isEmpty || chartData.every((spot) => spot.y == 0)) {
-      return const SizedBox.shrink();
-    }
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(20),
@@ -950,7 +952,6 @@ class _HomePageState extends State<HomePage> {
   }
 
   Widget _buildRecentTransactions() {
-    if (transactions.isEmpty) return const SizedBox.shrink();
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(20),
