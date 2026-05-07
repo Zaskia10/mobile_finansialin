@@ -136,7 +136,7 @@ class _As extends State<AddBudgets> {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text(
-              'Anggaran berhasil ditambahkan!',
+              'Budget berhasil ditambahkan!',
               style: TextStyle(
                 color: Colors.black,
                 fontWeight: FontWeight.bold,
@@ -147,7 +147,7 @@ class _As extends State<AddBudgets> {
         );
         Navigator.pop(context, true);
       } else {
-        throw Exception('Gagal menyimpan anggaran');
+        throw Exception('Gagal menyimpan budget');
       }
     } catch (e) {
       ScaffoldMessenger.of(
@@ -231,7 +231,7 @@ class _As extends State<AddBudgets> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              _buildLabel('Jumlah Anggaran'),
+              _buildLabel('Jumlah Budget'),
               TextFormField(
                 controller: _amountController,
                 keyboardType: TextInputType.number,
