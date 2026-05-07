@@ -252,8 +252,7 @@ class _HomePageState extends State<HomePage> {
           ? (res.data['data'] ?? [])
           : (res.data ?? []);
 
-      List<dynamic> enrichedGoals = [];
-      for (var b in budgetList) {
+      final List<Future<dynamic>> usageRequests = budgetList.map((b) async {
         int id = int.tryParse(b['id'].toString()) ?? 0;
         try {
           final usageRes = await dio.get("/budgets/$id/usage");
@@ -263,8 +262,10 @@ class _HomePageState extends State<HomePage> {
         } catch (_) {
           b['usage'] = {'used': 0.0, 'total': b['amount'], 'percent': 0.0};
         }
-        enrichedGoals.add(b);
-      }
+        return b;
+      }).toList();
+
+      List<dynamic> enrichedGoals = await Future.wait(usageRequests);
 
       if (mounted) setState(() => goals = enrichedGoals);
     } catch (e) {}
