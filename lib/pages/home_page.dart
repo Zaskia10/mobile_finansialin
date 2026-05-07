@@ -12,6 +12,7 @@ import 'chatbot_page.dart';
 import 'add_my_budgets.dart';
 import 'riwayat_page.dart';
 import 'analisis_page.dart';
+import 'my_budgets.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({Key? key}) : super(key: key);
@@ -27,11 +28,12 @@ class _HomePageState extends State<HomePage> {
   double income = 0;
   double expense = 0;
   double _totalBalance = 0;
+  int unreadNotifCount = 0;
   List<dynamic> transactions = [];
   List<dynamic> resources = [];
   List<dynamic> goals = [];
   Map<int, String> categoryMap = {};
-  dynamic selectedResourceHome;
+  int? selectedResourceIndex;
 
   List<FlSpot> chartData = [];
   String percentageText = "0%";
@@ -77,9 +79,22 @@ class _HomePageState extends State<HomePage> {
       fetchGoals(),
       fetchDashboardSummary(),
       _calculateMonthPercentage(),
+      fetchUnreadNotifs(),
     ]);
 
     if (mounted) setState(() => _isLoading = false);
+  }
+
+  Future<void> fetchUnreadNotifs() async {
+    try {
+      final res = await dio.get("/notifications/unread/count");
+      if (mounted) {
+        setState(() {
+          unreadNotifCount =
+              int.tryParse(res.data['count']?.toString() ?? '0') ?? 0;
+        });
+      }
+    } catch (e) {}
   }
 
   Future<void> fetchCategories() async {
@@ -232,35 +247,27 @@ class _HomePageState extends State<HomePage> {
 
   Future<void> fetchGoals() async {
     try {
-      final res = await dio.get("/budgets/goals");
-      final List<dynamic> dataList = res.data is Map
+      final res = await dio.get("/budgets");
+      final List<dynamic> budgetList = res.data is Map
           ? (res.data['data'] ?? [])
-          : res.data;
-      if (mounted) setState(() => goals = dataList);
-    } catch (e) {
-      try {
-        final resFallback = await dio.get("/budgets");
-        final List<dynamic> fallbackList = resFallback.data is Map
-            ? (resFallback.data['data'] ?? [])
-            : resFallback.data;
+          : (res.data ?? []);
 
-        List<dynamic> enrichedGoals = [];
-        for (var b in fallbackList) {
-          int id = int.tryParse(b['id'].toString()) ?? 0;
-          try {
-            final usageRes = await dio.get("/budgets/$id/usage");
-            b['usage'] = usageRes.data is Map
-                ? usageRes.data
-                : (usageRes.data['data'] ?? {});
-          } catch (_) {
-            b['usage'] = {'used': 0.0, 'total': b['amount'], 'percent': 0.0};
-          }
-          enrichedGoals.add(b);
+      List<dynamic> enrichedGoals = [];
+      for (var b in budgetList) {
+        int id = int.tryParse(b['id'].toString()) ?? 0;
+        try {
+          final usageRes = await dio.get("/budgets/$id/usage");
+          b['usage'] = usageRes.data is Map
+              ? usageRes.data
+              : (usageRes.data['data'] ?? {});
+        } catch (_) {
+          b['usage'] = {'used': 0.0, 'total': b['amount'], 'percent': 0.0};
         }
+        enrichedGoals.add(b);
+      }
 
-        if (mounted) setState(() => goals = enrichedGoals);
-      } catch (eFallback) {}
-    }
+      if (mounted) setState(() => goals = enrichedGoals);
+    } catch (e) {}
   }
 
   Future<void> fetchDashboardSummary() async {
@@ -352,6 +359,195 @@ class _HomePageState extends State<HomePage> {
     return Icons.account_balance_wallet;
   }
 
+  LinearGradient _getCardGradient() {
+    Map<String, dynamic>? selectedRes;
+    if (selectedResourceIndex != null &&
+        selectedResourceIndex! < resources.length) {
+      selectedRes = resources[selectedResourceIndex!];
+    }
+
+    if (selectedRes == null) {
+      return const LinearGradient(
+        colors: [Color(0xFFFFE000), Color(0xFFFF8C00)],
+        begin: Alignment.topLeft,
+        end: Alignment.bottomRight,
+      );
+    }
+    String sourceName = selectedRes['source']?.toString().toLowerCase() ?? '';
+    if (sourceName.contains('e-wallet') ||
+        sourceName.contains('emoney') ||
+        sourceName.contains('dana') ||
+        sourceName.contains('ovo') ||
+        sourceName.contains('gopay')) {
+      return const LinearGradient(
+        colors: [Color(0xFFB2FF59), Color(0xFF00E676)],
+        begin: Alignment.topLeft,
+        end: Alignment.bottomRight,
+      );
+    }
+    return const LinearGradient(
+      colors: [Color(0xFF90CAF9), Color(0xFF1976D2)],
+      begin: Alignment.topLeft,
+      end: Alignment.bottomRight,
+    );
+  }
+
+  void _showNotificationModal() {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (BuildContext context) {
+        return FractionallySizedBox(
+          heightFactor: 0.7,
+          child: Column(
+            children: [
+              Padding(
+                padding: const EdgeInsets.fromLTRB(24, 24, 24, 16),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    const Text(
+                      "Notifications",
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.black87,
+                      ),
+                    ),
+                    GestureDetector(
+                      onTap: () async {
+                        try {
+                          await dio.patch("/notifications/read-all");
+                          _fetchAllData();
+                          if (mounted) Navigator.pop(context);
+                        } catch (e) {}
+                      },
+                      child: const Text(
+                        "Mark all read",
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.black87,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const Divider(height: 1, color: Color(0xFFEEEEEE)),
+              Expanded(
+                child: FutureBuilder(
+                  future: dio.get("/notifications"),
+                  builder: (context, snapshot) {
+                    if (snapshot.connectionState == ConnectionState.waiting) {
+                      return const Center(
+                        child: CircularProgressIndicator(
+                          color: Color(0xFFFFC107),
+                        ),
+                      );
+                    }
+                    if (!snapshot.hasData) {
+                      return const Center(
+                        child: Text(
+                          "Tidak ada notifikasi",
+                          style: TextStyle(color: Colors.grey),
+                        ),
+                      );
+                    }
+
+                    final response = snapshot.data as Response;
+                    final List<dynamic> notifs = response.data is Map
+                        ? (response.data['data'] ?? [])
+                        : (response.data ?? []);
+
+                    if (notifs.isEmpty) {
+                      return const Center(
+                        child: Text(
+                          "Tidak ada notifikasi",
+                          style: TextStyle(color: Colors.grey),
+                        ),
+                      );
+                    }
+
+                    return ListView.separated(
+                      itemCount: notifs.length,
+                      separatorBuilder: (context, index) =>
+                          const Divider(height: 1, color: Color(0xFFEEEEEE)),
+                      itemBuilder: (context, index) {
+                        final notif = notifs[index];
+                        final isRead =
+                            notif['isRead'] == true || notif['read'] == true;
+
+                        final title =
+                            notif['title']?.toString() ??
+                            notif['message']?.toString() ??
+                            'Notifikasi Baru';
+                        final message = notif['message']?.toString() ?? '';
+                        final dateStr =
+                            notif['createdAt']?.toString() ??
+                            notif['date']?.toString();
+
+                        String displayDate = '';
+                        if (dateStr != null) {
+                          try {
+                            final dt = DateTime.parse(dateStr).toLocal();
+                            displayDate = "${dt.month}/${dt.day}/${dt.year}";
+                          } catch (e) {
+                            displayDate = dateStr;
+                          }
+                        }
+
+                        String textToDisplay = title;
+                        if (title != message && message.isNotEmpty) {
+                          textToDisplay = "$title\n$message";
+                        }
+
+                        return Container(
+                          color: isRead
+                              ? Colors.white
+                              : const Color(0xFFFCFAF5),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 24,
+                            vertical: 16,
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                textToDisplay,
+                                style: const TextStyle(
+                                  fontSize: 14,
+                                  color: Color(0xFF555555),
+                                  height: 1.4,
+                                ),
+                              ),
+                              const SizedBox(height: 8),
+                              Text(
+                                displayDate,
+                                style: const TextStyle(
+                                  fontSize: 12,
+                                  color: Colors.grey,
+                                ),
+                              ),
+                            ],
+                          ),
+                        );
+                      },
+                    );
+                  },
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
   Widget _buildHomeContent() {
     return SafeArea(
       child: RefreshIndicator(
@@ -363,6 +559,59 @@ class _HomePageState extends State<HomePage> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Image.asset(
+                    'assets/images/logo_finansialin.png',
+                    height: 28,
+                    errorBuilder: (context, error, stackTrace) {
+                      return const Text(
+                        "finansialin",
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          color: Colors.black87,
+                          fontSize: 20,
+                        ),
+                      );
+                    },
+                  ),
+                  GestureDetector(
+                    onTap: _showNotificationModal,
+                    child: Stack(
+                      clipBehavior: Clip.none,
+                      children: [
+                        const Icon(
+                          Icons.notifications_none,
+                          size: 28,
+                          color: Colors.black87,
+                        ),
+                        if (unreadNotifCount > 0)
+                          Positioned(
+                            right: 0,
+                            top: 0,
+                            child: Container(
+                              padding: const EdgeInsets.all(4),
+                              decoration: const BoxDecoration(
+                                color: Colors.red,
+                                shape: BoxShape.circle,
+                              ),
+                              child: Text(
+                                '$unreadNotifCount',
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ),
+                          ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 20),
               _buildBalanceCard(),
               if (!_isLoading) ...[
                 const SizedBox(height: 20),
@@ -428,21 +677,92 @@ class _HomePageState extends State<HomePage> {
   }
 
   Widget _buildBalanceCard() {
+    String cardKeyStr = selectedResourceIndex?.toString() ?? 'all';
+
+    return AnimatedSwitcher(
+      duration: const Duration(milliseconds: 500),
+      transitionBuilder: (Widget child, Animation<double> animation) {
+        return ScaleTransition(
+          scale: Tween<double>(begin: 0.9, end: 1.0).animate(
+            CurvedAnimation(parent: animation, curve: Curves.easeOutCubic),
+          ),
+          child: FadeTransition(
+            opacity: animation,
+            child: SlideTransition(
+              position:
+                  Tween<Offset>(
+                    begin: const Offset(0.0, 0.05),
+                    end: Offset.zero,
+                  ).animate(
+                    CurvedAnimation(
+                      parent: animation,
+                      curve: Curves.easeOutCubic,
+                    ),
+                  ),
+              child: child,
+            ),
+          ),
+        );
+      },
+      child: _buildBalanceCardContent(key: ValueKey(cardKeyStr)),
+    );
+  }
+
+  Widget _buildBalanceCardContent({required Key key}) {
     double displayBalance = _totalBalance;
     String displayTitle = "Total Uang kamu sekarang";
 
-    if (selectedResourceHome != null) {
+    if (selectedResourceIndex != null &&
+        selectedResourceIndex! < resources.length) {
+      var selectedRes = resources[selectedResourceIndex!];
       displayBalance =
-          double.tryParse(selectedResourceHome['balance']?.toString() ?? '0') ??
-          0;
-      displayTitle = "Uang kamu sekarang";
+          double.tryParse(selectedRes['balance']?.toString() ?? '0') ?? 0;
+      String sourceName = selectedRes['source']?.toString() ?? '';
+      displayTitle = "Total Uang $sourceName";
+    }
+
+    List<DropdownMenuItem<int?>> dropdownItems = [
+      const DropdownMenuItem<int?>(
+        value: null,
+        child: Text(
+          "Semua Dompet (Total)",
+          style: TextStyle(
+            color: Colors.black87,
+            fontSize: 12,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+      ),
+    ];
+
+    for (int i = 0; i < resources.length; i++) {
+      var res = resources[i];
+      dropdownItems.add(
+        DropdownMenuItem<int?>(
+          value: i,
+          child: Text(
+            res['source']?.toString() ?? '-',
+            style: const TextStyle(
+              color: Colors.black87,
+              fontSize: 12,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+        ),
+      );
+    }
+
+    if (selectedResourceIndex != null &&
+        selectedResourceIndex! >= resources.length) {
+      selectedResourceIndex = null;
     }
 
     return Container(
+      key: key,
       width: double.infinity,
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: const Color(0xFFFFC107),
+        gradient: _getCardGradient(),
         borderRadius: BorderRadius.circular(16),
       ),
       child: Column(
@@ -451,104 +771,40 @@ class _HomePageState extends State<HomePage> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 10,
-                  vertical: 6,
-                ),
-                decoration: BoxDecoration(
-                  color: Colors.transparent,
-                  borderRadius: BorderRadius.circular(20),
-                ),
-                child: DropdownButtonHideUnderline(
-                  child: DropdownButton<dynamic>(
-                    value: selectedResourceHome,
-                    icon: const SizedBox.shrink(),
-                    hint: const Row(
-                      children: [
-                        Icon(
-                          Icons.account_balance_wallet,
-                          size: 16,
-                          color: Colors.black,
-                        ),
-                        SizedBox(width: 8),
-                        Text(
-                          "Pilih sumber uang (dompet)",
-                          style: TextStyle(
-                            color: Colors.black87,
-                            fontSize: 12,
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
-                      ],
-                    ),
-                    items: [
-                      const DropdownMenuItem<dynamic>(
-                        value: null,
-                        child: Row(
-                          children: [
-                            Icon(
-                              Icons.account_balance_wallet,
-                              size: 16,
-                              color: Colors.black,
-                            ),
-                            SizedBox(width: 8),
-                            Text(
-                              "Semua Dompet (Total)",
-                              style: TextStyle(
-                                color: Colors.black87,
-                                fontSize: 12,
-                                fontWeight: FontWeight.w500,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      ...resources.map((res) {
-                        return DropdownMenuItem<dynamic>(
-                          value: res,
-                          child: Row(
-                            children: [
-                              const Icon(
-                                Icons.account_balance_wallet,
-                                size: 16,
-                                color: Colors.black,
-                              ),
-                              const SizedBox(width: 8),
-                              Text(
-                                res['source']?.toString() ?? '-',
-                                style: const TextStyle(
-                                  color: Colors.black87,
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.w500,
-                                ),
-                              ),
-                            ],
-                          ),
-                        );
-                      }).toList(),
-                    ],
-                    onChanged: (val) {
-                      setState(() => selectedResourceHome = val);
-                    },
-                  ),
+              const Text(
+                "Pilih sumber uang (dompet)",
+                style: TextStyle(
+                  color: Colors.black87,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w500,
                 ),
               ),
-              const Text(
-                "finansialin",
-                style: TextStyle(
-                  fontWeight: FontWeight.bold,
-                  color: Colors.white,
-                  fontSize: 16,
+              DropdownButtonHideUnderline(
+                child: DropdownButton<int?>(
+                  value: selectedResourceIndex,
+                  icon: const SizedBox.shrink(),
+                  dropdownColor: Colors.white,
+                  hint: const Text(
+                    "All",
+                    style: TextStyle(
+                      color: Colors.black87,
+                      fontSize: 12,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  items: dropdownItems,
+                  onChanged: (val) {
+                    setState(() => selectedResourceIndex = val);
+                  },
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 24),
+          const SizedBox(height: 16),
           Text(
             displayTitle,
             style: const TextStyle(
-              color: Colors.black54,
+              color: Colors.black87,
               fontSize: 12,
               fontWeight: FontWeight.w500,
             ),
@@ -581,7 +837,7 @@ class _HomePageState extends State<HomePage> {
                       percentageText,
                       style: const TextStyle(
                         fontSize: 10,
-                        color: Color(0xFFFFC107),
+                        color: Color(0xFF4CAF50),
                         fontWeight: FontWeight.bold,
                       ),
                     ),
@@ -775,46 +1031,56 @@ class _HomePageState extends State<HomePage> {
             ),
           ...goals.take(3).map((goal) {
             final double target =
-                double.tryParse(
-                  goal['amount']?.toString() ??
-                      goal['totalBudget']?.toString() ??
-                      goal['total']?.toString() ??
-                      '0',
-                ) ??
-                0.0;
-
-            final usage = goal['usage'] ?? {};
-            final double current =
-                double.tryParse(
-                  goal['used']?.toString() ??
-                      usage['used']?.toString() ??
-                      goal['totalSpent']?.toString() ??
-                      goal['spent']?.toString() ??
-                      '0',
-                ) ??
-                0.0;
-
-            final double percent = target > 0 ? (current / target) : 0.0;
+                double.tryParse(goal['amount']?.toString() ?? '0') ?? 0.0;
 
             int idCat =
                 int.tryParse(goal['idCategory']?.toString() ?? '0') ?? 0;
+
+            double manualUsed = 0.0;
+            for (var tx in transactions) {
+              if (tx['type'] == 'expense') {
+                int txCat =
+                    int.tryParse(tx['idCategory']?.toString() ?? '0') ?? 0;
+                if (txCat == idCat) {
+                  manualUsed +=
+                      double.tryParse(tx['amount']?.toString() ?? '0') ?? 0.0;
+                }
+              }
+            }
+
+            final usage = goal['usage'] ?? {};
+            double apiUsed =
+                double.tryParse(usage['used']?.toString() ?? '0') ?? 0.0;
+            final double current = (manualUsed > 0) ? manualUsed : apiUsed;
+            final double percent = target > 0 ? (current / target) : 0.0;
+
             String title =
-                goal['category']?['name'] ??
                 goal['categoryName'] ??
+                goal['category']?['name'] ??
                 categoryMap[idCat] ??
                 goal['name'] ??
                 'General';
 
             IconData iconToUse = _getIconForCategory(title);
 
-            return Padding(
-              padding: const EdgeInsets.only(bottom: 24),
-              child: _buildGoalItem(
-                icon: iconToUse,
-                title: title,
-                current: current,
-                target: target,
-                percent: percent > 1.0 ? 1.0 : percent,
+            return GestureDetector(
+              onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => const MyBudgetsPage(),
+                  ),
+                ).then((_) => _fetchAllData());
+              },
+              child: Padding(
+                padding: const EdgeInsets.only(bottom: 24),
+                child: _buildGoalItem(
+                  icon: iconToUse,
+                  title: title,
+                  current: current,
+                  target: target,
+                  percent: percent,
+                ),
               ),
             );
           }).toList(),
@@ -830,6 +1096,14 @@ class _HomePageState extends State<HomePage> {
     required double target,
     required double percent,
   }) {
+    bool isOverBudget = percent > 1.0;
+    double displayPercent = percent.clamp(0.0, 1.0);
+    Color progressColor = isOverBudget ? Colors.red : const Color(0xFFFFC107);
+
+    String percentText = isOverBudget
+        ? "OVER BUDGET"
+        : "${(percent * 100).toInt()}%";
+
     return Column(
       children: [
         Row(
@@ -868,11 +1142,11 @@ class _HomePageState extends State<HomePage> {
               ),
             ),
             Text(
-              "${(percent * 100).toInt()}%",
-              style: const TextStyle(
-                fontSize: 16,
+              percentText,
+              style: TextStyle(
+                fontSize: isOverBudget ? 14 : 16,
                 fontWeight: FontWeight.bold,
-                color: Color(0xFFFFC107),
+                color: progressColor,
               ),
             ),
           ],
@@ -887,10 +1161,11 @@ class _HomePageState extends State<HomePage> {
           ),
           child: FractionallySizedBox(
             alignment: Alignment.centerLeft,
-            widthFactor: percent.clamp(0.0, 1.0),
-            child: Container(
+            widthFactor: displayPercent,
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 500),
               decoration: BoxDecoration(
-                color: const Color(0xFFFFC107),
+                color: progressColor,
                 borderRadius: BorderRadius.circular(4),
               ),
             ),
@@ -990,7 +1265,6 @@ class _HomePageState extends State<HomePage> {
               date: formatDate(item['date']),
               amount: "${isInc ? '+' : '-'}${formatCurrency(amt)}",
               isIncome: isInc,
-              categoryName: catName,
             );
           }).toList(),
         ],
@@ -1003,7 +1277,6 @@ class _HomePageState extends State<HomePage> {
     required String date,
     required String amount,
     required bool isIncome,
-    required String categoryName,
   }) {
     return Container(
       margin: const EdgeInsets.only(bottom: 16),

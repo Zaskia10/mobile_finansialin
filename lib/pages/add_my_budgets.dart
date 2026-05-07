@@ -212,7 +212,7 @@ class _As extends State<AddBudgets> {
       backgroundColor: Colors.white,
       appBar: AppBar(
         title: const Text(
-          'Tambah Anggaran',
+          'Tambah Budget',
           style: TextStyle(
             color: Colors.black,
             fontWeight: FontWeight.bold,
@@ -361,7 +361,7 @@ class _As extends State<AddBudgets> {
                       ),
                     )
                   : const Text(
-                      'Simpan Anggaran',
+                      'Simpan Budget',
                       style: TextStyle(
                         fontSize: 15,
                         fontWeight: FontWeight.bold,
