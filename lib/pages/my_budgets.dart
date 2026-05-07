@@ -76,19 +76,21 @@ class _MyBudgetsPageState extends State<MyBudgetsPage> {
           ? results[2].data
           : (results[2].data['data'] ?? []);
 
-      List<dynamic> enriched = [];
-      for (var b in budgetList) {
-        int id = int.tryParse(b['id'].toString()) ?? 0;
-        try {
-          final usageRes = await dio.get("/budgets/$id/usage");
-          b['usage'] = usageRes.data is Map
-              ? usageRes.data
-              : (usageRes.data['data'] ?? {});
-        } catch (_) {
-          b['usage'] = {'used': 0.0, 'total': b['amount'], 'percent': 0.0};
-        }
-        enriched.add(b);
-      }
+      List<dynamic> enriched = List.from(budgetList);
+
+      await Future.wait(
+        enriched.map((b) async {
+          int id = int.tryParse(b['id'].toString()) ?? 0;
+          try {
+            final usageRes = await dio.get("/budgets/$id/usage");
+            b['usage'] = usageRes.data is Map
+                ? usageRes.data
+                : (usageRes.data['data'] ?? {});
+          } catch (_) {
+            b['usage'] = {'used': 0.0, 'total': b['amount'], 'percent': 0.0};
+          }
+        }),
+      );
 
       if (mounted) {
         setState(() {
@@ -463,7 +465,6 @@ class _MyBudgetsPageState extends State<MyBudgetsPage> {
       try {
         DateTime start = DateTime.parse(b['periodStart'].toString());
         DateTime end = DateTime.parse(b['periodEnd'].toString());
-
         List<String> months = [
           "Jan",
           "Feb",

@@ -564,7 +564,7 @@ class _HomePageState extends State<HomePage> {
                 children: [
                   Image.asset(
                     'assets/images/logo_finansialin.png',
-                    height: 28,
+                    height: 32,
                     errorBuilder: (context, error, stackTrace) {
                       return const Text(
                         "finansialin",
